@@ -18,6 +18,7 @@
   var ROTATION_TIP_KEY = 'guiyu-rotation-tip-seen';
   var DRAG_START_THRESHOLD = 6;
   var DRAG_START_THRESHOLD_COARSE = 7;
+  var DRAG_START_THRESHOLD_BOARD_COARSE = 3;
   var DRAG_HOLD_DELAY_COARSE = 90;
   var PIECE_SPACING_X = 30;
   var PIECE_SPACING_Y = 26;
@@ -294,6 +295,13 @@
 
   function _getDragStartThreshold() {
     return _isCoarsePointer() ? DRAG_START_THRESHOLD_COARSE : DRAG_START_THRESHOLD;
+  }
+
+  function _getPressDragThreshold() {
+    if (_press.source === 'board' && _isCoarsePointer()) {
+      return DRAG_START_THRESHOLD_BOARD_COARSE;
+    }
+    return _getDragStartThreshold();
   }
 
   function _getImmediateTrayDragThreshold() {
@@ -1994,6 +2002,7 @@
     options = options || {};
     var anchorX = options.anchorX !== undefined ? options.anchorX : pointerPos.x;
     var anchorY = options.anchorY !== undefined ? options.anchorY : pointerPos.y;
+    var shouldLockScroll = options.lockScroll !== undefined ? options.lockScroll : true;
 
     _clearPress();
     _setSelectedPiece(pieceId, true);
@@ -2053,7 +2062,9 @@
 
     document.dispatchEvent(new CustomEvent('sfx-pickup'));
     _emit('piece-drag-start', { pieceId: pieceId });
-    _setDragScrollLock(true);
+    if (shouldLockScroll) {
+      _setDragScrollLock(true);
+    }
 
     _attachPointerListeners();
     document.addEventListener('wheel', _onWheel, { passive: false });
@@ -2135,6 +2146,7 @@
         boardRect: cancelBoardRect,
         anchorX: _press.startX,
         anchorY: _press.startY,
+        lockScroll: false,
       },
       pointerEvent.pointerId
     );
@@ -2221,7 +2233,7 @@
         _press.holdTimerId = 0;
       }
     }
-    if (Math.sqrt(dx * dx + dy * dy) < _getDragStartThreshold()) {
+    if (Math.sqrt(dx * dx + dy * dy) < _getPressDragThreshold()) {
       return;
     }
 
@@ -2348,11 +2360,8 @@
         // Render piece circles on the board
         _renderPlacedPiece(pieceId, snap.positions, color);
 
-        // Mark tray element as placed
-        el.classList.add('piece--placed');
-
-        // Reset fixed positioning styles
-        _resetPieceStyle(el);
+        // Settle the tray preview back to its home slot without a visible bounce.
+        _settlePlacedTrayPiece(el);
 
         afterState = _buildPieceState(
           pieceId,
@@ -2471,6 +2480,20 @@
     el.style.zIndex     = '';
     el.style.willChange = '';
     _cancelReturnAnimation(el);
+  }
+
+  function _settlePlacedTrayPiece(el) {
+    if (!el) return;
+
+    _cancelReturnAnimation(el);
+    el.style.transition = 'none';
+    el.style.opacity = '0';
+    _resetPieceStyle(el);
+    el.classList.add('piece--placed');
+
+    requestAnimationFrame(function () {
+      el.style.opacity = '';
+    });
   }
 
   function _returnToRect(el, rect) {
