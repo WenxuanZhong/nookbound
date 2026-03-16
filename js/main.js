@@ -23,6 +23,8 @@
   var _btnMusicToggle = null;
   var _btnMenuHint = null;
   var _btnMenuGuide = null;
+  var _btnMenuReset = null;
+  var _btnMenuRestart = null;
   var _playLevelEyebrow = null;
   var _playLevelTitle = null;
   var _playLevelMeta = null;
@@ -478,6 +480,14 @@
       _btnMenuGuide.disabled = !inPlay;
       _btnMenuGuide.classList.toggle('settings-toggle--off', !inPlay);
     }
+    if (_btnMenuReset) {
+      _btnMenuReset.disabled = !inPlay;
+      _btnMenuReset.classList.toggle('settings-toggle--off', !inPlay);
+    }
+    if (_btnMenuRestart) {
+      _btnMenuRestart.disabled = !inPlay;
+      _btnMenuRestart.classList.toggle('settings-toggle--off', !inPlay);
+    }
   }
 
   function _wireSettings() {
@@ -489,6 +499,8 @@
     _btnMusicToggle = document.getElementById('btn-music-toggle');
     _btnMenuHint = document.getElementById('btn-menu-hint');
     _btnMenuGuide = document.getElementById('btn-menu-guide');
+    _btnMenuReset = document.getElementById('btn-menu-reset');
+    _btnMenuRestart = document.getElementById('btn-menu-restart');
 
     if (_btnSettings) {
       _btnSettings.addEventListener('click', function (e) {
@@ -543,6 +555,22 @@
         var guideButton = document.getElementById('btn-guide');
         if (_currentView !== 'play' || !guideButton) return;
         guideButton.click();
+        _setSettingsOpen(false);
+      });
+    }
+
+    if (_btnMenuReset) {
+      _btnMenuReset.addEventListener('click', function () {
+        if (_currentView !== 'play' || !_btnReset) return;
+        _btnReset.click();
+        _setSettingsOpen(false);
+      });
+    }
+
+    if (_btnMenuRestart) {
+      _btnMenuRestart.addEventListener('click', function () {
+        if (_currentView !== 'play' || !_btnRestart) return;
+        _btnRestart.click();
         _setSettingsOpen(false);
       });
     }

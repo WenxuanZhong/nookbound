@@ -798,9 +798,16 @@ button:focus-visible {
    8b. Play Hint Bar
    ---------------------------------------------------------- */
 #play-hint-bar {
-  width: 100%;
-  max-width: 560px;
-  order: 3;
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  border: 0;
+  clip: rect(0, 0, 0, 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 .play-hint-bar {
@@ -2009,20 +2016,20 @@ button:focus-visible {
 
   #app {
     padding: calc(14px + env(safe-area-inset-top, 0px)) 12px calc(28px + env(safe-area-inset-bottom, 0px));
-    gap: 14px;
+    gap: 12px;
   }
 
   .screen {
-    gap: 14px;
+    gap: 12px;
   }
 
   .screen--selection {
-    gap: 14px;
+    gap: 12px;
   }
 
   #header {
     align-items: stretch;
-    gap: 14px;
+    gap: 12px;
     padding-right: 44px;
   }
 
@@ -2044,13 +2051,13 @@ button:focus-visible {
   }
 
   #level-selector {
-    gap: 12px;
+    gap: 8px;
   }
 
   .level-selector__summary {
     flex-direction: column;
     align-items: flex-start;
-    gap: 10px;
+    gap: 8px;
   }
 
   .level-selector__meta {
@@ -2077,6 +2084,7 @@ button:focus-visible {
 
   .level-group {
     padding: 0;
+    gap: 8px;
     background: transparent;
     box-shadow: none;
     border-radius: 0;
@@ -2087,7 +2095,7 @@ button:focus-visible {
     grid-template-columns: minmax(0, 1fr);
     grid-auto-flow: row;
     grid-auto-columns: auto;
-    gap: 12px;
+    gap: 10px;
     overflow: visible;
     scroll-snap-type: none;
     padding-bottom: 0;
@@ -2115,7 +2123,7 @@ button:focus-visible {
 
   .screen--play {
     min-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 16px);
-    padding-bottom: calc(148px + env(safe-area-inset-bottom, 0px));
+    padding-bottom: calc(116px + env(safe-area-inset-bottom, 0px));
     gap: 12px;
   }
 
@@ -2152,10 +2160,6 @@ button:focus-visible {
     max-width: none;
     font-size: 0.72rem;
     line-height: 1.38;
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    overflow: hidden;
   }
 
   #game-area {
@@ -2164,7 +2168,7 @@ button:focus-visible {
     gap: 14px;
     align-items: stretch;
     flex-wrap: nowrap;
-    flex: 1 1 auto;
+    flex: 0 0 auto;
   }
 
   #board-container {
@@ -2180,27 +2184,6 @@ button:focus-visible {
     max-height: min(44dvh, 400px);
   }
 
-  #play-hint-bar {
-    order: 3;
-    width: min(100%, 460px);
-    max-width: none;
-    align-self: center;
-  }
-
-  .play-hint-bar {
-    min-height: 36px;
-    padding: 8px 12px;
-    border-radius: 16px;
-  }
-
-  .play-hint-bar__text {
-    font-size: 0.72rem;
-    display: -webkit-box;
-    -webkit-box-orient: vertical;
-    -webkit-line-clamp: 2;
-    overflow: hidden;
-  }
-
   #pieces-tray {
     order: 2;
     width: 100%;
@@ -2208,15 +2191,15 @@ button:focus-visible {
     align-self: stretch;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
-    padding: 10px;
+    padding: 8px 0 4px;
     min-height: 132px;
-    max-height: min(30dvh, 250px);
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    background: rgba(255,255,255,.34);
-    border: 1px solid rgba(255,255,255,.52);
-    border-radius: 20px;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,.45);
+    max-height: none;
+    overflow: visible;
+    overscroll-behavior: auto;
+    background: transparent;
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
   }
 
   .piece-wrapper {
@@ -2227,8 +2210,8 @@ button:focus-visible {
   #pieces-tray.pieces-tray--dense {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 9px;
-    max-height: min(31dvh, 266px);
-    padding: 10px;
+    max-height: none;
+    padding: 6px 0 4px;
   }
 
   #pieces-tray.pieces-tray--dense .piece-wrapper {
@@ -2246,7 +2229,7 @@ button:focus-visible {
   }
 
   .guide-shell {
-    order: 4;
+    order: 3;
     position: static;
     bottom: auto;
     z-index: auto;
@@ -2289,8 +2272,8 @@ button:focus-visible {
     width: min(calc(100% - 24px), 520px);
     transform: translateX(-50%);
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
     padding: 12px 0 calc(2px + env(safe-area-inset-bottom, 0px));
     background: linear-gradient(
       180deg,
@@ -2301,19 +2284,13 @@ button:focus-visible {
   }
 
   #btn-hint,
-  #btn-guide {
+  #btn-guide,
+  #btn-reset,
+  #btn-restart {
     display: none;
   }
 
-  #controls .btn {
-    width: 100%;
-    min-height: 48px;
-    padding: 9px 14px;
-    border-radius: 16px;
-  }
-
   #controls .rotation-bar {
-    grid-column: 1 / -1;
     width: 100%;
     min-height: 64px;
     padding: 10px 10px 10px 12px;

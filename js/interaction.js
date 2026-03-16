@@ -18,6 +18,7 @@
   var ROTATION_TIP_KEY = 'guiyu-rotation-tip-seen';
   var DRAG_START_THRESHOLD = 6;
   var DRAG_START_THRESHOLD_COARSE = 10;
+  var DRAG_HOLD_DELAY_COARSE = 160;
   var PIECE_SPACING_X = 30;
   var PIECE_SPACING_Y = 26;
   var PIECE_RADIUS = 12;
@@ -110,6 +111,8 @@
     source: 'tray',
     startX: 0,
     startY: 0,
+    dragReady: true,
+    holdTimerId: 0,
     pointerId: null,
   };
 
@@ -288,6 +291,10 @@
 
   function _getDragStartThreshold() {
     return _isCoarsePointer() ? DRAG_START_THRESHOLD_COARSE : DRAG_START_THRESHOLD;
+  }
+
+  function _shouldUseTrayHold(source) {
+    return _isCoarsePointer() && source === 'tray';
   }
 
   function _t(key, vars) {
@@ -1037,7 +1044,7 @@
       wrapper.setAttribute('data-piece-id', piece.id);
       wrapper.setAttribute('data-piece-slot', index + 1);
       wrapper.setAttribute('data-color', piece.color || '#7BA7BC');
-      wrapper.setAttribute('touch-action', 'none');
+      wrapper.setAttribute('touch-action', _isCoarsePointer() ? 'manipulation' : 'none');
       wrapper.setAttribute(
         'title',
         _getPieceTooltip()
@@ -1820,6 +1827,7 @@
 
   function _queuePress(wrapper, pieceId, pointerEvent, source, boardNode) {
     var pos = _getPointerPos(pointerEvent);
+    var useTrayHold = _shouldUseTrayHold(source || 'tray');
 
     _press.active = true;
     _press.pieceId = pieceId;
@@ -1828,7 +1836,16 @@
     _press.source = source || 'tray';
     _press.startX = pos.x;
     _press.startY = pos.y;
+    _press.dragReady = !useTrayHold;
+    _press.holdTimerId = 0;
     _press.pointerId = pointerEvent.pointerId;
+
+    if (useTrayHold) {
+      _press.holdTimerId = setTimeout(function () {
+        if (!_press.active || _press.pieceId !== pieceId) return;
+        _press.dragReady = true;
+      }, DRAG_HOLD_DELAY_COARSE);
+    }
 
     _setSelectedPiece(pieceId, true);
     _attachPointerListeners();
@@ -1836,6 +1853,9 @@
   }
 
   function _clearPress() {
+    if (_press.holdTimerId) {
+      clearTimeout(_press.holdTimerId);
+    }
     _press.active = false;
     _press.pieceId = null;
     _press.wrapper = null;
@@ -1843,6 +1863,8 @@
     _press.source = 'tray';
     _press.startX = 0;
     _press.startY = 0;
+    _press.dragReady = true;
+    _press.holdTimerId = 0;
     _press.pointerId = null;
   }
 
@@ -1852,8 +1874,7 @@
   }
 
   function _onTouchStart(e) {
-    // Prevent default to avoid scrolling while dragging
-    e.preventDefault();
+    // Allow the page to keep scrolling naturally until a drag actually begins.
   }
 
   function _cloneRect(rect) {
@@ -2036,13 +2057,18 @@
     var wrapper = e.currentTarget;
     var pieceId = wrapper ? wrapper.getAttribute('data-piece-id') : null;
     var boardNode;
+    var isPlaced;
 
     if (!wrapper || !pieceId) return;
 
-    e.preventDefault();
+    isPlaced = wrapper.classList.contains('piece--placed');
+
+    if (!(_isCoarsePointer() && !isPlaced)) {
+      e.preventDefault();
+    }
     e.stopPropagation();
 
-    if (wrapper.classList.contains('piece--placed')) {
+    if (isPlaced) {
       boardNode = _pieceGroup
         ? _pieceGroup.querySelector('.board-piece[data-piece-id="' + pieceId + '"]')
         : null;
@@ -2081,6 +2107,9 @@
     pos = _getPointerPos(e);
     dx = pos.x - _press.startX;
     dy = pos.y - _press.startY;
+    if (_press.source === 'tray' && !_press.dragReady) {
+      return;
+    }
     if (Math.sqrt(dx * dx + dy * dy) < _getDragStartThreshold()) {
       return;
     }
