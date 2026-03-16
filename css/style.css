@@ -669,9 +669,8 @@ button:focus-visible {
 }
 
 .piece-wrapper {
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  display: grid;
+  place-items: center;
   min-height: 92px;
   padding: 8px;
   background: rgba(255,255,255,.45);
@@ -685,6 +684,7 @@ button:focus-visible {
   touch-action: none;
   position: relative;
   contain: layout paint;
+  overflow: hidden;
 }
 
 .piece-wrapper:hover {
@@ -698,10 +698,13 @@ button:focus-visible {
 .piece-svg {
   display: block;
   width: 100%;
-  height: auto;
+  height: 100%;
   max-width: 100%;
+  max-height: 100%;
+  margin: auto;
   overflow: visible;
   pointer-events: none;
+  flex: 0 0 auto;
 }
 
 #pieces-tray.pieces-tray--dense {
@@ -2030,13 +2033,14 @@ button:focus-visible {
   #header {
     align-items: stretch;
     gap: 12px;
-    padding-right: 44px;
+    padding-right: 0;
   }
 
   .header-copy {
     align-items: flex-start;
     text-align: left;
     padding-top: 0;
+    padding-right: 44px;
     gap: 4px;
   }
 
@@ -2067,19 +2071,28 @@ button:focus-visible {
 
   .level-tabs {
     width: 100%;
-    justify-content: flex-start;
-    gap: 6px;
-    overflow-x: auto;
-    scrollbar-width: none;
-  }
-
-  .level-tabs::-webkit-scrollbar {
-    display: none;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 7px;
+    overflow: visible;
   }
 
   .level-tab {
-    min-width: 84px;
-    padding: 8px 10px;
+    min-width: 0;
+    width: 100%;
+    padding: 8px 6px;
+    justify-content: center;
+    gap: 6px;
+  }
+
+  .level-tab__label {
+    font-size: 0.72rem;
+  }
+
+  .level-tab__count {
+    min-width: 18px;
+    height: 18px;
+    font-size: 0.62rem;
   }
 
   .level-group {
@@ -2103,8 +2116,12 @@ button:focus-visible {
 
   .level-card {
     min-height: 0;
-    padding: 14px;
+    padding: 13px 12px;
     border-radius: 18px;
+    box-shadow: 0 6px 14px rgba(79,74,67,.08);
+    transition: border-color var(--transition-fast), background var(--transition-fast);
+    content-visibility: auto;
+    contain-intrinsic-size: 176px;
   }
 
   .level-card__body {
@@ -2132,7 +2149,7 @@ button:focus-visible {
     grid-template-columns: auto minmax(0, 1fr);
     align-items: start;
     gap: 8px 10px;
-    padding: 0 44px 0 0;
+    padding: 0;
   }
 
   .play-header__back {
@@ -2143,6 +2160,7 @@ button:focus-visible {
 
   .play-header__copy {
     gap: 2px;
+    padding-right: 44px;
     padding-top: 2px;
   }
 
@@ -2165,7 +2183,7 @@ button:focus-visible {
   #game-area {
     width: 100%;
     max-width: 520px;
-    gap: 14px;
+    gap: 12px;
     align-items: stretch;
     flex-wrap: nowrap;
     flex: 0 0 auto;
@@ -2189,8 +2207,8 @@ button:focus-visible {
     width: 100%;
     max-width: none;
     align-self: stretch;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 10px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
     padding: 8px 0 4px;
     min-height: 132px;
     max-height: none;
@@ -2203,29 +2221,31 @@ button:focus-visible {
   }
 
   .piece-wrapper {
-    min-height: 90px;
-    padding: 8px;
+    min-height: 82px;
+    padding: 6px;
+    box-shadow: 0 4px 12px rgba(79,74,67,.07);
+    transition: transform 140ms ease, opacity 140ms ease, background var(--transition-fast);
   }
 
   #pieces-tray.pieces-tray--dense {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 9px;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 8px;
     max-height: none;
     padding: 6px 0 4px;
   }
 
   #pieces-tray.pieces-tray--dense .piece-wrapper {
-    min-height: 82px;
-    padding: 7px;
+    min-height: 72px;
+    padding: 5px;
   }
 
   #pieces-tray.pieces-tray--crowded {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 
   #pieces-tray.pieces-tray--crowded .piece-wrapper {
-    min-height: 78px;
-    padding: 6px;
+    min-height: 68px;
+    padding: 5px;
   }
 
   .guide-shell {
@@ -2242,6 +2262,7 @@ button:focus-visible {
     padding: 12px 14px;
     border-radius: 18px;
     max-height: min(24dvh, 210px);
+    box-shadow: 0 10px 24px rgba(79,74,67,.08);
   }
 
   .guide-panel__title {
@@ -2325,6 +2346,9 @@ button:focus-visible {
   .settings-panel {
     top: 44px;
     width: min(228px, calc(100vw - 20px));
+    box-shadow: 0 12px 24px rgba(79,74,67,.12);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
   }
 }
 
@@ -2426,6 +2450,9 @@ button:focus-visible {
     gap: 8px;
     padding: 10px 10px 10px 12px;
     min-height: 62px;
+    box-shadow: 0 8px 18px rgba(79,74,67,.12);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
   }
 
   .rotation-bar__hint {

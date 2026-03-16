@@ -234,6 +234,7 @@
   function _computeTrayFrame(pieces) {
     var contentWidth = PIECE_RADIUS * 2;
     var contentHeight = PIECE_RADIUS * 2;
+    var contentSize;
 
     (pieces || []).forEach(function (piece) {
       var frame = _getPieceFrame(piece);
@@ -241,9 +242,11 @@
       contentHeight = Math.max(contentHeight, frame.height - PIECE_PAD * 2);
     });
 
+    contentSize = Math.max(contentWidth, contentHeight);
+
     return {
-      width: Math.ceil(contentWidth + TRAY_PIECE_PAD * 2),
-      height: Math.ceil(contentHeight + TRAY_PIECE_PAD * 2),
+      width: Math.ceil(contentSize + TRAY_PIECE_PAD * 2),
+      height: Math.ceil(contentSize + TRAY_PIECE_PAD * 2),
     };
   }
 
@@ -985,6 +988,7 @@
     svg.setAttribute('class', 'piece-svg');
     svg.setAttribute('width', w);
     svg.setAttribute('height', h);
+    svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
 
     // gradient defs inside the piece SVG
     var defs = _svgEl('defs');
@@ -1044,7 +1048,7 @@
       wrapper.setAttribute('data-piece-id', piece.id);
       wrapper.setAttribute('data-piece-slot', index + 1);
       wrapper.setAttribute('data-color', piece.color || '#7BA7BC');
-      wrapper.setAttribute('touch-action', _isCoarsePointer() ? 'manipulation' : 'none');
+      wrapper.setAttribute('touch-action', _isCoarsePointer() ? 'pan-y' : 'none');
       wrapper.setAttribute(
         'title',
         _getPieceTooltip()
@@ -1168,6 +1172,7 @@
   }
 
   function _clearHighlights() {
+    if (!_previewKey) return;
     _previewKey = '';
     _clearPitPreviewState();
     _highlightGroup.innerHTML = '';
