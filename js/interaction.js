@@ -1943,6 +1943,8 @@
 
   function _beginDrag(wrapper, pieceId, pointerPos, startRect, options, pointerId) {
     options = options || {};
+    var anchorX = options.anchorX !== undefined ? options.anchorX : pointerPos.x;
+    var anchorY = options.anchorY !== undefined ? options.anchorY : pointerPos.y;
 
     _clearPress();
     _setSelectedPiece(pieceId, true);
@@ -1968,8 +1970,10 @@
     _drag.lastProbeX = null;
     _drag.lastProbeY = null;
     _drag.lastProbeRotation = null;
-    _drag.offsetX = pointerPos.x - startRect.left - startRect.width / 2;
-    _drag.offsetY = pointerPos.y - startRect.top - startRect.height / 2;
+    _drag.offsetX = anchorX - startRect.left - startRect.width / 2;
+    _drag.offsetY = anchorY - startRect.top - startRect.height / 2;
+    _drag.currentX = pointerPos.x - startRect.width / 2 - _drag.offsetX;
+    _drag.currentY = pointerPos.y - startRect.height / 2 - _drag.offsetY;
     _drag.snapPos = null;
     _drag.invalidSnap = null;
     _cancelDragTargetUpdate();
@@ -2076,6 +2080,8 @@
         restoreRect: dragRect,
         trayRect: trayRect,
         boardRect: cancelBoardRect,
+        anchorX: _press.startX,
+        anchorY: _press.startY,
       },
       pointerEvent.pointerId
     );
@@ -2185,6 +2191,8 @@
         source: 'tray',
         wasPlaced: false,
         returnRect: rect,
+        anchorX: _press.startX,
+        anchorY: _press.startY,
       },
       e.pointerId
     );
