@@ -1991,6 +1991,242 @@ button:focus-visible {
 }
 
 /* ----------------------------------------------------------
+   16b. Responsive -- Mobile portrait play layout
+   ---------------------------------------------------------- */
+@media (max-width: 767px) and (orientation: portrait) {
+  .screen--play {
+    min-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 24px);
+    gap: 12px;
+  }
+
+  .play-header {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: start;
+    gap: 8px 10px;
+    padding: 0 44px 0 0;
+  }
+
+  .play-header__back {
+    min-height: 40px;
+    padding-inline: 12px;
+    align-self: start;
+  }
+
+  .play-header__copy {
+    gap: 2px;
+    padding-top: 2px;
+  }
+
+  .play-header__eyebrow {
+    font-size: 0.62rem;
+    letter-spacing: 0.08em;
+  }
+
+  .play-header__title {
+    font-size: 1rem;
+    line-height: 1.2;
+  }
+
+  .play-header__meta {
+    max-width: none;
+    font-size: 0.72rem;
+    line-height: 1.38;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+  }
+
+  #game-area {
+    width: 100%;
+    max-width: 520px;
+    gap: 14px;
+    align-items: stretch;
+    flex-wrap: nowrap;
+  }
+
+  #board-container {
+    order: 1;
+    width: min(100%, 460px);
+    max-width: none;
+    align-self: center;
+    padding: 16px 12px 18px;
+    border-radius: 18px;
+  }
+
+  #board-svg {
+    max-height: min(44dvh, 400px);
+  }
+
+  #play-hint-bar {
+    order: 2;
+    width: min(100%, 460px);
+    max-width: none;
+    align-self: center;
+  }
+
+  .play-hint-bar {
+    min-height: 36px;
+    padding: 8px 12px;
+    border-radius: 16px;
+  }
+
+  .play-hint-bar__text {
+    font-size: 0.72rem;
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+  }
+
+  #pieces-tray {
+    order: 3;
+    width: 100%;
+    max-width: none;
+    align-self: stretch;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    padding: 10px;
+    min-height: 126px;
+    max-height: min(30dvh, 264px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    background: rgba(255,255,255,.34);
+    border: 1px solid rgba(255,255,255,.52);
+    border-radius: 20px;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.45);
+  }
+
+  .piece-wrapper {
+    min-height: 90px;
+    padding: 8px;
+  }
+
+  #pieces-tray.pieces-tray--dense {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 9px;
+    max-height: min(32dvh, 286px);
+    padding: 10px;
+  }
+
+  #pieces-tray.pieces-tray--dense .piece-wrapper {
+    min-height: 82px;
+    padding: 7px;
+  }
+
+  #pieces-tray.pieces-tray--crowded {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  #pieces-tray.pieces-tray--crowded .piece-wrapper {
+    min-height: 78px;
+    padding: 6px;
+  }
+
+  .guide-shell {
+    order: 4;
+    position: static;
+    bottom: auto;
+    z-index: auto;
+    width: 100%;
+    max-width: none;
+  }
+
+  .guide-panel {
+    gap: 10px;
+    padding: 12px 14px;
+    border-radius: 18px;
+    max-height: min(26dvh, 240px);
+  }
+
+  .guide-panel__title {
+    font-size: 1rem;
+  }
+
+  .guide-panel__description {
+    font-size: 0.74rem;
+    line-height: 1.42;
+  }
+
+  .guide-panel__actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    justify-content: stretch;
+  }
+
+  #btn-guide-toggle {
+    grid-column: 1 / -1;
+  }
+
+  #controls {
+    position: sticky;
+    bottom: max(10px, env(safe-area-inset-bottom, 0px));
+    z-index: 18;
+    margin-top: auto;
+    width: 100%;
+    max-width: 520px;
+    align-self: center;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+    padding: 12px 0 calc(4px + env(safe-area-inset-bottom, 0px));
+    background: linear-gradient(
+      180deg,
+      rgba(245,243,238,0),
+      rgba(245,243,238,.92) 24%,
+      rgba(245,243,238,.98) 100%
+    );
+  }
+
+  #controls .btn {
+    width: 100%;
+    min-height: 48px;
+    padding: 9px 14px;
+    border-radius: 16px;
+  }
+
+  #controls .rotation-bar {
+    grid-column: 1 / -1;
+    width: 100%;
+    min-height: 64px;
+    padding: 10px 10px 10px 12px;
+    border-radius: 18px;
+  }
+
+  .rotation-bar__title {
+    font-size: 0.66rem;
+  }
+
+  .rotation-bar__keys {
+    max-width: none;
+    font-size: 0.58rem;
+  }
+
+  .rotation-btn {
+    width: 52px;
+    height: 52px;
+    border-radius: 15px;
+  }
+
+  .settings-shell {
+    top: calc(12px + env(safe-area-inset-top, 0px));
+    right: max(12px, env(safe-area-inset-right, 0px));
+  }
+
+  .btn-settings {
+    width: 42px;
+    height: 42px;
+  }
+
+  .settings-panel {
+    top: 44px;
+    width: min(228px, calc(100vw - 20px));
+  }
+}
+
+/* ----------------------------------------------------------
    17. Reduced motion
    ---------------------------------------------------------- */
 @media (prefers-reduced-motion: reduce) {
