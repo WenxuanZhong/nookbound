@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>归隅</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <div id="app">
+
+    <div class="settings-shell">
+      <button id="btn-settings" class="btn-settings" type="button" aria-label="打开设置" data-i18n-aria-label="settings.open">
+        <svg width="20" height="20" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+          <path d="M9 2.7 10.2 4a4.7 4.7 0 0 1 1.46.58l1.68-.28 1 1.74-1.08 1.32c.06.28.1.56.1.86 0 .3-.04.58-.1.86l1.08 1.32-1 1.74-1.68-.28a4.7 4.7 0 0 1-1.46.58L9 15.3l-1.2-1.3a4.7 4.7 0 0 1-1.46-.58l-1.68.28-1-1.74 1.08-1.32a4.7 4.7 0 0 1 0-1.72L3.66 6.6l1-1.74 1.68.28c.45-.25.94-.44 1.46-.58L9 2.7Z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
+          <circle cx="9" cy="9" r="2.2" stroke="currentColor" stroke-width="1.2"/>
+        </svg>
+      </button>
+      <div id="settings-panel" class="settings-panel hidden" aria-hidden="true">
+        <div class="settings-panel__section">
+          <span class="settings-panel__label" data-i18n="settings.language">语言</span>
+          <div class="settings-segment" role="group" aria-label="语言" data-i18n-aria-label="settings.language">
+            <button id="btn-lang-zh" class="settings-segment__btn" type="button" data-lang="zh">中文</button>
+            <button id="btn-lang-en" class="settings-segment__btn" type="button" data-lang="en">English</button>
+          </div>
+        </div>
+        <div class="settings-panel__section">
+          <span class="settings-panel__label" data-i18n="settings.audio">声音</span>
+          <div class="settings-toggles">
+            <button id="btn-sfx-toggle" class="settings-toggle" type="button">音效 开</button>
+            <button id="btn-music-toggle" class="settings-toggle" type="button">音乐 开</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <section id="selection-screen" class="screen screen--selection screen--active" aria-hidden="false">
+      <header id="header">
+        <div class="header-copy">
+          <span class="header-copy__eyebrow" data-i18n="header.eyebrow">静谧逻辑玩具</span>
+          <h1 class="game-title" data-i18n="app.title">归隅</h1>
+          <p class="header-copy__subtitle" data-i18n="header.subtitle">挑一块棋盘，慢慢摆好每一枚珠粒，按自己的节奏把它拼完整。</p>
+        </div>
+        <nav id="level-selector" aria-label="关卡选择" data-i18n-aria-label="selector.aria">
+          <!-- JS populates level pills here -->
+        </nav>
+      </header>
+    </section>
+
+    <section id="play-screen" class="screen screen--play screen--inactive" aria-hidden="true">
+      <header id="play-header" class="play-header">
+        <button id="btn-back" class="btn btn--subtle play-header__back" type="button" aria-label="返回选关" data-i18n-aria-label="play.back">
+          <svg class="btn-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path d="M9.5 3 4.5 8l5 5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M5 8h6.5" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span data-i18n="play.back">返回选关</span>
+        </button>
+        <div class="play-header__copy">
+          <span id="play-level-eyebrow" class="play-header__eyebrow">当前关卡</span>
+          <h2 id="play-level-title" class="play-header__title">归隅</h2>
+          <p id="play-level-meta" class="play-header__meta">先从选关页挑一关开始。</p>
+        </div>
+      </header>
+
+      <main id="game-area">
+        <div id="board-container">
+          <svg id="board-svg"
+               xmlns="http://www.w3.org/2000/svg"
+               viewBox="0 0 300 270"
+               preserveAspectRatio="xMidYMid meet"
+               role="img"
+             aria-label="游戏棋盘"
+             data-i18n-aria-label="play.boardAria">
+
+            <defs>
+              <!-- Pit inner shadow: blurred alpha offset composited over source -->
+              <filter id="pit-shadow" x="-20%" y="-20%" width="140%" height="140%">
+                <feGaussianBlur in="SourceAlpha" stdDeviation="2" result="blur"/>
+                <feOffset dx="0" dy="1" result="offset"/>
+                <feComposite in="SourceGraphic" in2="offset" operator="over"/>
+              </filter>
+
+              <!-- Gentle glow for pieces -->
+              <filter id="piece-glow" x="-30%" y="-30%" width="160%" height="160%">
+                <feGaussianBlur stdDeviation="1.5" result="blur"/>
+                <feMerge>
+                  <feMergeNode in="blur"/>
+                  <feMergeNode in="SourceGraphic"/>
+                </feMerge>
+              </filter>
+
+              <!-- Highlight pulse for snap preview -->
+              <filter id="highlight-glow" x="-40%" y="-40%" width="180%" height="180%">
+                <feGaussianBlur stdDeviation="3" result="blur"/>
+                <feMerge>
+                  <feMergeNode in="blur"/>
+                  <feMergeNode in="SourceGraphic"/>
+                </feMerge>
+              </filter>
+            </defs>
+
+            <!-- Pit circles group (bottom layer) -->
+            <g id="board-pits"></g>
+
+            <!-- Snap preview highlights (middle layer) -->
+            <g id="board-highlights"></g>
+
+            <!-- Guide / hint overlays -->
+            <g id="board-guides"></g>
+
+            <!-- Placed piece circles (top layer) -->
+            <g id="board-pieces"></g>
+
+          </svg>
+
+          <div id="loading-message" class="loading-message">
+            <span class="loading-dot"></span>
+            <span class="loading-dot"></span>
+            <span class="loading-dot"></span>
+          </div>
+        </div>
+
+        <div id="pieces-tray" aria-label="待摆拼块" data-i18n-aria-label="play.trayAria">
+          <!-- JS populates draggable piece elements here -->
+        </div>
+
+        <div id="play-hint-bar" class="play-hint-bar" role="status" aria-live="polite">
+          <span id="play-hint-text" class="play-hint-bar__text" data-i18n="hint.default">把拼块拖到棋盘里。</span>
+        </div>
+
+        <aside id="guide-overlay" class="guide-shell hidden" aria-hidden="true">
+          <section class="guide-panel" aria-labelledby="guide-title">
+            <div class="guide-panel__top">
+              <div class="guide-panel__eyebrow" data-i18n="guide.eyebrow">题解引导</div>
+              <button id="btn-guide-close" class="guide-panel__close" type="button" aria-label="收起题解" data-i18n-aria-label="guide.close">
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden="true">
+                  <path d="M4.5 4.5 13.5 13.5M13.5 4.5 4.5 13.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+                </svg>
+              </button>
+            </div>
+            <div class="guide-panel__content">
+              <h2 id="guide-title" class="guide-panel__title" data-i18n="guide.title">分步题解</h2>
+              <p id="guide-description" class="guide-panel__description" data-i18n="guide.description">打开后会按顺序提示一个拼块。</p>
+              <div class="guide-panel__meta">
+                <span id="guide-progress" class="guide-chip" data-i18n="guide.progressInitial">第 1 步</span>
+                <span id="guide-mode" class="guide-chip" data-i18n="guide.mode.focus">聚焦</span>
+              </div>
+            </div>
+            <div class="guide-panel__actions">
+              <button id="btn-guide-prev" class="btn btn--subtle" type="button" data-i18n="guide.prev">上一步</button>
+              <button id="btn-guide-toggle" class="btn btn--subtle" type="button" data-i18n="guide.showFull">显示全解</button>
+              <button id="btn-guide-next" class="btn btn--accent" type="button" data-i18n="guide.next">下一步</button>
+            </div>
+          </section>
+        </aside>
+      </main>
+
+      <div id="controls">
+        <button id="btn-hint" class="btn btn--subtle" type="button" aria-label="显示下一条提示" data-i18n-aria-label="buttons.hint">
+          <svg class="btn-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path d="M8 2.2a4.2 4.2 0 0 0-2.8 7.35c.55.5.92 1.16 1.04 1.9h3.52c.12-.74.49-1.4 1.04-1.9A4.2 4.2 0 0 0 8 2.2Z" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M6.6 13h2.8M7 11.45h2" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+          </svg>
+          <span data-i18n="buttons.hint">提示</span>
+        </button>
+        <button id="btn-guide" class="btn btn--subtle" type="button" aria-label="打开分步题解" data-i18n-aria-label="buttons.guide">
+          <svg class="btn-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path d="M3 3.5A1.5 1.5 0 0 1 4.5 2H13v11.5a.5.5 0 0 1-.79.4L9.3 11.8a1.5 1.5 0 0 0-1.8 0L4.6 13.9a.5.5 0 0 1-.8-.4V3.5Z" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M6 5.2h4.5M6 7.8h4.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/>
+          </svg>
+          <span data-i18n="buttons.guide">题解</span>
+        </button>
+        <button id="btn-reset" class="btn btn--subtle" type="button" aria-label="让拼块回到待选区" data-i18n-aria-label="buttons.reset">
+          <svg class="btn-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path d="M2 2v5h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M3.05 10A6 6 0 1 0 4 4L2 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span data-i18n="buttons.reset">归位</span>
+        </button>
+        <button id="btn-restart" class="btn btn--subtle" type="button" aria-label="重新开始当前关卡" data-i18n-aria-label="buttons.restart">
+          <svg class="btn-icon" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path d="M1 1v5h5M15 15v-5h-5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M13.5 6A6 6 0 0 0 3 4L1 6M2.5 10a6 6 0 0 0 10.5 2l2-2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span data-i18n="buttons.restart">重开</span>
+        </button>
+      </div>
+    </section>
+
+    <div id="celebration-overlay" class="hidden">
+      <div class="celebration-backdrop"></div>
+      <div class="cannon cannon-left" aria-hidden="true">
+        <div class="cannon-shadow"></div>
+        <div class="cannon-base"></div>
+        <div class="cannon-body"></div>
+        <div class="cannon-band"></div>
+        <div class="cannon-barrel"></div>
+        <div class="cannon-mouth"></div>
+      </div>
+      <div class="cannon cannon-right" aria-hidden="true">
+        <div class="cannon-shadow"></div>
+        <div class="cannon-base"></div>
+        <div class="cannon-body"></div>
+        <div class="cannon-band"></div>
+        <div class="cannon-barrel"></div>
+        <div class="cannon-mouth"></div>
+      </div>
+      <div class="confetti-container" aria-hidden="true">
+        <!-- JS injects confetti particles here -->
+      </div>
+      <div class="win-message" role="alert">
+        <span class="win-message__title" data-i18n="win.title">完成！</span>
+        <span class="win-message__subtitle" data-i18n="win.subtitle">这一局拼好了</span>
+        <button class="btn btn--accent win-message__btn" id="btn-next-level" type="button" data-i18n="win.next">下一关</button>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="js/levels.js"></script>
+  <script src="js/i18n.js"></script>
+  <script src="js/game-engine.js"></script>
+  <script src="js/interaction.js"></script>
+  <script src="js/celebration.js"></script>
+  <script src="js/audio.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

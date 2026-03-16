@@ -1,0 +1,9 @@
+{
+  "name": "guiyu",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Guiyu / Nookbound static puzzle game",
+  "scripts": {
+    "build": "node scripts/build.mjs"
+  }
+}
