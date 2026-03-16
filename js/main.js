@@ -9,6 +9,7 @@
      DOM references
      ---------------------------------------------------------- */
   var _levelSelector = null;
+  var _appRoot = null;
   var _selectionScreen = null;
   var _playScreen = null;
   var _btnBack = null;
@@ -20,6 +21,8 @@
   var _btnLangEn = null;
   var _btnSfxToggle = null;
   var _btnMusicToggle = null;
+  var _btnMenuHint = null;
+  var _btnMenuGuide = null;
   var _playLevelEyebrow = null;
   var _playLevelTitle = null;
   var _playLevelMeta = null;
@@ -236,6 +239,7 @@
 
   function _enterSelectionView() {
     _currentView = 'select';
+    _setSettingsOpen(false);
     if (window.Interaction && window.Interaction.collapseTransientUi) {
       window.Interaction.collapseTransientUi();
     }
@@ -247,6 +251,7 @@
 
     _setScreenState(_playScreen, false);
     _setScreenState(_selectionScreen, true);
+    _syncSettingsUi();
     _scrollToTop();
   }
 
@@ -257,9 +262,11 @@
       : 0;
 
     _currentView = 'play';
+    _setSettingsOpen(false);
     _setScreenState(_selectionScreen, false);
     _setScreenState(_playScreen, true);
     _updatePlayHeader(level, idx);
+    _syncSettingsUi();
     _scrollToTop();
   }
 
@@ -437,6 +444,11 @@
     var language = window.GameI18n && window.GameI18n.getLanguage
       ? window.GameI18n.getLanguage()
       : 'zh';
+    var inPlay = _currentView === 'play';
+
+    if (_appRoot) {
+      _appRoot.classList.toggle('app--play-view', inPlay);
+    }
 
     if (_btnLangZh) {
       _btnLangZh.classList.toggle('settings-segment__btn--active', language === 'zh');
@@ -458,6 +470,14 @@
         : (_t('settings.musicOff') || '音乐 关');
       _btnMusicToggle.classList.toggle('settings-toggle--off', !(window.GameAudio.isMusicEnabled && window.GameAudio.isMusicEnabled()));
     }
+    if (_btnMenuHint) {
+      _btnMenuHint.disabled = !inPlay;
+      _btnMenuHint.classList.toggle('settings-toggle--off', !inPlay);
+    }
+    if (_btnMenuGuide) {
+      _btnMenuGuide.disabled = !inPlay;
+      _btnMenuGuide.classList.toggle('settings-toggle--off', !inPlay);
+    }
   }
 
   function _wireSettings() {
@@ -467,6 +487,8 @@
     _btnLangEn = document.getElementById('btn-lang-en');
     _btnSfxToggle = document.getElementById('btn-sfx-toggle');
     _btnMusicToggle = document.getElementById('btn-music-toggle');
+    _btnMenuHint = document.getElementById('btn-menu-hint');
+    _btnMenuGuide = document.getElementById('btn-menu-guide');
 
     if (_btnSettings) {
       _btnSettings.addEventListener('click', function (e) {
@@ -504,6 +526,24 @@
         if (!window.GameAudio || !window.GameAudio.setMusicEnabled || !window.GameAudio.isMusicEnabled) return;
         window.GameAudio.setMusicEnabled(!window.GameAudio.isMusicEnabled());
         _syncSettingsUi();
+      });
+    }
+
+    if (_btnMenuHint) {
+      _btnMenuHint.addEventListener('click', function () {
+        var hintButton = document.getElementById('btn-hint');
+        if (_currentView !== 'play' || !hintButton) return;
+        hintButton.click();
+        _setSettingsOpen(false);
+      });
+    }
+
+    if (_btnMenuGuide) {
+      _btnMenuGuide.addEventListener('click', function () {
+        var guideButton = document.getElementById('btn-guide');
+        if (_currentView !== 'play' || !guideButton) return;
+        guideButton.click();
+        _setSettingsOpen(false);
       });
     }
 
@@ -609,6 +649,7 @@
 
     _selectionScreen = document.getElementById('selection-screen');
     _playScreen = document.getElementById('play-screen');
+    _appRoot = document.getElementById('app');
     _playLevelEyebrow = document.getElementById('play-level-eyebrow');
     _playLevelTitle = document.getElementById('play-level-title');
     _playLevelMeta = document.getElementById('play-level-meta');

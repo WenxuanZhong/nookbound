@@ -1584,6 +1584,15 @@ button:focus-visible {
   gap: 6px;
 }
 
+.settings-actions {
+  display: grid;
+  gap: 6px;
+}
+
+.settings-panel__section--play {
+  display: none;
+}
+
 .settings-toggle--off {
   background: rgba(232,228,221,.54);
   color: var(--text-light);
@@ -1994,8 +2003,119 @@ button:focus-visible {
    16b. Responsive -- Mobile portrait play layout
    ---------------------------------------------------------- */
 @media (max-width: 767px) and (orientation: portrait) {
+  #app.app--play-view .settings-panel__section--play {
+    display: grid;
+  }
+
+  #app {
+    padding: calc(14px + env(safe-area-inset-top, 0px)) 12px calc(28px + env(safe-area-inset-bottom, 0px));
+    gap: 14px;
+  }
+
+  .screen {
+    gap: 14px;
+  }
+
+  .screen--selection {
+    gap: 14px;
+  }
+
+  #header {
+    align-items: stretch;
+    gap: 14px;
+    padding-right: 44px;
+  }
+
+  .header-copy {
+    align-items: flex-start;
+    text-align: left;
+    padding-top: 0;
+    gap: 4px;
+  }
+
+  .header-copy__subtitle {
+    max-width: none;
+    font-size: 0.76rem;
+    line-height: 1.48;
+  }
+
+  .game-title {
+    font-size: 0.96rem;
+  }
+
+  #level-selector {
+    gap: 12px;
+  }
+
+  .level-selector__summary {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .level-selector__meta {
+    justify-content: flex-start;
+    width: 100%;
+  }
+
+  .level-tabs {
+    width: 100%;
+    justify-content: flex-start;
+    gap: 6px;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .level-tabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .level-tab {
+    min-width: 84px;
+    padding: 8px 10px;
+  }
+
+  .level-group {
+    padding: 0;
+    background: transparent;
+    box-shadow: none;
+    border-radius: 0;
+  }
+
+  .level-group__cards {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-auto-flow: row;
+    grid-auto-columns: auto;
+    gap: 12px;
+    overflow: visible;
+    scroll-snap-type: none;
+    padding-bottom: 0;
+  }
+
+  .level-card {
+    min-height: 0;
+    padding: 14px;
+    border-radius: 18px;
+  }
+
+  .level-card__body {
+    grid-template-columns: 92px minmax(0, 1fr);
+    gap: 12px;
+  }
+
+  .level-card__preview {
+    min-height: 72px;
+    padding: 10px;
+  }
+
+  .level-card__preview-svg {
+    height: 62px;
+  }
+
   .screen--play {
-    min-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 24px);
+    min-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 16px);
+    padding-bottom: calc(148px + env(safe-area-inset-bottom, 0px));
     gap: 12px;
   }
 
@@ -2044,6 +2164,7 @@ button:focus-visible {
     gap: 14px;
     align-items: stretch;
     flex-wrap: nowrap;
+    flex: 1 1 auto;
   }
 
   #board-container {
@@ -2060,7 +2181,7 @@ button:focus-visible {
   }
 
   #play-hint-bar {
-    order: 2;
+    order: 3;
     width: min(100%, 460px);
     max-width: none;
     align-self: center;
@@ -2081,15 +2202,15 @@ button:focus-visible {
   }
 
   #pieces-tray {
-    order: 3;
+    order: 2;
     width: 100%;
     max-width: none;
     align-self: stretch;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
     padding: 10px;
-    min-height: 126px;
-    max-height: min(30dvh, 264px);
+    min-height: 132px;
+    max-height: min(30dvh, 250px);
     overflow-y: auto;
     overscroll-behavior: contain;
     background: rgba(255,255,255,.34);
@@ -2106,7 +2227,7 @@ button:focus-visible {
   #pieces-tray.pieces-tray--dense {
     grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 9px;
-    max-height: min(32dvh, 286px);
+    max-height: min(31dvh, 266px);
     padding: 10px;
   }
 
@@ -2137,7 +2258,7 @@ button:focus-visible {
     gap: 10px;
     padding: 12px 14px;
     border-radius: 18px;
-    max-height: min(26dvh, 240px);
+    max-height: min(24dvh, 210px);
   }
 
   .guide-panel__title {
@@ -2161,23 +2282,27 @@ button:focus-visible {
   }
 
   #controls {
-    position: sticky;
+    position: fixed;
+    left: 50%;
     bottom: max(10px, env(safe-area-inset-bottom, 0px));
     z-index: 18;
-    margin-top: auto;
-    width: 100%;
-    max-width: 520px;
-    align-self: center;
+    width: min(calc(100% - 24px), 520px);
+    transform: translateX(-50%);
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 10px;
-    padding: 12px 0 calc(4px + env(safe-area-inset-bottom, 0px));
+    padding: 12px 0 calc(2px + env(safe-area-inset-bottom, 0px));
     background: linear-gradient(
       180deg,
       rgba(245,243,238,0),
       rgba(245,243,238,.92) 24%,
       rgba(245,243,238,.98) 100%
     );
+  }
+
+  #btn-hint,
+  #btn-guide {
+    display: none;
   }
 
   #controls .btn {

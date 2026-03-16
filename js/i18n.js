@@ -41,6 +41,7 @@
       },
       settings: {
         open: '打开设置',
+        playTools: '游玩',
         language: '语言',
         audio: '声音',
         sfxOn: '音效 开',
@@ -178,6 +179,7 @@
       },
       settings: {
         open: 'Open settings',
+        playTools: 'Play',
         language: 'Language',
         audio: 'Audio',
         sfxOn: 'SFX On',
