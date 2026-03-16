@@ -17,8 +17,8 @@
   var HINT_RESTORE_MS = 1800;
   var ROTATION_TIP_KEY = 'guiyu-rotation-tip-seen';
   var DRAG_START_THRESHOLD = 6;
-  var DRAG_START_THRESHOLD_COARSE = 10;
-  var DRAG_HOLD_DELAY_COARSE = 160;
+  var DRAG_START_THRESHOLD_COARSE = 7;
+  var DRAG_HOLD_DELAY_COARSE = 90;
   var PIECE_SPACING_X = 30;
   var PIECE_SPACING_Y = 26;
   var PIECE_RADIUS = 12;
@@ -296,8 +296,22 @@
     return _isCoarsePointer() ? DRAG_START_THRESHOLD_COARSE : DRAG_START_THRESHOLD;
   }
 
+  function _getImmediateTrayDragThreshold() {
+    return Math.max(_getDragStartThreshold() + 5, 12);
+  }
+
   function _shouldUseTrayHold(source) {
     return _isCoarsePointer() && source === 'tray';
+  }
+
+  function _getDragScale() {
+    return _isCoarsePointer() ? 1.02 : 1.05;
+  }
+
+  function _setDragScrollLock(locked) {
+    if (!_isCoarsePointer()) return;
+    document.documentElement.classList.toggle('drag-scroll-locked', !!locked);
+    document.body.classList.toggle('drag-scroll-locked', !!locked);
   }
 
   function _t(key, vars) {
@@ -798,6 +812,31 @@
       clearTimeout(el._returnTimerId);
       el._returnTimerId = 0;
     }
+  }
+
+  function _applyDragTransform(el, scale) {
+    var startRect;
+    var translateX;
+    var translateY;
+    var dragScale;
+
+    if (!el) return;
+
+    startRect = _drag.startRect || _drag.restoreRect || { left: _drag.currentX, top: _drag.currentY };
+    translateX = _drag.currentX - startRect.left;
+    translateY = _drag.currentY - startRect.top;
+    dragScale = scale !== undefined ? scale : _getDragScale();
+
+    el.style.transform =
+      'translate3d(' + translateX + 'px, ' + translateY + 'px, 0) scale(' + dragScale + ')';
+  }
+
+  function _commitDragPosition(el) {
+    if (!el) return;
+
+    el.style.left = _drag.currentX + 'px';
+    el.style.top = _drag.currentY + 'px';
+    el.style.transform = 'translate3d(0, 0, 0)';
   }
 
   function _queueDragTargetUpdate() {
@@ -1569,10 +1608,10 @@
       _refreshPieceWrapper(pieceId);
 
       _drag.el.style.transition = 'transform 120ms ease';
-      _drag.el.style.transform = 'scale(1.08)';
+      _applyDragTransform(_drag.el, _getDragScale() + 0.03);
       setTimeout(function () {
         if (_drag.el) {
-          _drag.el.style.transform = 'scale(1.05)';
+          _applyDragTransform(_drag.el);
           _drag.el.style.transition = 'none';
         }
       }, 120);
@@ -1942,6 +1981,7 @@
     wrapper.style.width = startRect.width + 'px';
     wrapper.style.height = startRect.height + 'px';
     wrapper.style.transition = 'none';
+    _applyDragTransform(wrapper);
 
     if (pointerId !== undefined && wrapper.setPointerCapture) {
       try {
@@ -1956,6 +1996,7 @@
 
     document.dispatchEvent(new CustomEvent('sfx-pickup'));
     _emit('piece-drag-start', { pieceId: pieceId });
+    _setDragScrollLock(true);
 
     _attachPointerListeners();
     document.addEventListener('wheel', _onWheel, { passive: false });
@@ -2101,8 +2142,7 @@
       _drag.currentY = pos.y - h / 2 - _drag.offsetY;
       _drag.pointerX = pos.x;
       _drag.pointerY = pos.y;
-      el.style.left = _drag.currentX + 'px';
-      el.style.top  = _drag.currentY + 'px';
+      _applyDragTransform(el);
       _queueDragTargetUpdate();
       return;
     }
@@ -2113,7 +2153,14 @@
     dx = pos.x - _press.startX;
     dy = pos.y - _press.startY;
     if (_press.source === 'tray' && !_press.dragReady) {
-      return;
+      if (Math.sqrt(dx * dx + dy * dy) < _getImmediateTrayDragThreshold()) {
+        return;
+      }
+      _press.dragReady = true;
+      if (_press.holdTimerId) {
+        clearTimeout(_press.holdTimerId);
+        _press.holdTimerId = 0;
+      }
     }
     if (Math.sqrt(dx * dx + dy * dy) < _getDragStartThreshold()) {
       return;
@@ -2167,6 +2214,7 @@
     e.preventDefault();
 
     _detachPointerListeners();
+    _setDragScrollLock(false);
 
     // Remove rotation listeners
     document.removeEventListener('wheel', _onWheel);
@@ -2179,12 +2227,18 @@
     var releasePos = _getPointerPos(e);
 
     if (el) {
+      if (e.pointerId !== undefined && el.releasePointerCapture) {
+        try {
+          el.releasePointerCapture(e.pointerId);
+        } catch (err) {
+          // Ignore pointer capture cleanup errors.
+        }
+      }
       releaseWidth = _drag.width || parseFloat(el.style.width) || el.offsetWidth;
       releaseHeight = _drag.height || parseFloat(el.style.height) || el.offsetHeight;
       _drag.currentX = releasePos.x - releaseWidth / 2 - _drag.offsetX;
       _drag.currentY = releasePos.y - releaseHeight / 2 - _drag.offsetY;
-      el.style.left = _drag.currentX + 'px';
-      el.style.top = _drag.currentY + 'px';
+      _commitDragPosition(el);
       _updateDragTargets(true);
     }
 
@@ -2615,6 +2669,7 @@
     _drag.currentY = 0;
     _drag.color = '#7BA7BC';
     _cancelDragTargetUpdate();
+    _setDragScrollLock(false);
     _guide.mode = 'none';
     _guide.stepIndex = 0;
     _guide.full = false;

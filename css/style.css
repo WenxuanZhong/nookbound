@@ -732,14 +732,19 @@ button:focus-visible {
 
 /* Piece states */
 .piece--dragging {
-  box-shadow: var(--shadow-lg) !important;
-  transform: scale(1.05);
+  box-shadow: var(--shadow-md) !important;
   z-index: 1000;
-  opacity: 0.92;
+  opacity: 0.96;
   cursor: grabbing;
   position: fixed;
   pointer-events: none;
   will-change: transform;
+}
+
+html.drag-scroll-locked,
+body.drag-scroll-locked {
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 .piece--placed {
