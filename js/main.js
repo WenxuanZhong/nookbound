@@ -39,6 +39,7 @@
     difficulty: 'easy',
     scrollLeft: 0,
   };
+  var _canUndo = false;
 
   var _GROUP_ORDER = ['easy', 'medium', 'hard', 'expert'];
 
@@ -481,8 +482,8 @@
       _btnMenuGuide.classList.toggle('settings-toggle--off', !inPlay);
     }
     if (_btnMenuReset) {
-      _btnMenuReset.disabled = !inPlay;
-      _btnMenuReset.classList.toggle('settings-toggle--off', !inPlay);
+      _btnMenuReset.disabled = !inPlay || !_canUndo;
+      _btnMenuReset.classList.toggle('settings-toggle--off', !inPlay || !_canUndo);
     }
     if (_btnMenuRestart) {
       _btnMenuRestart.disabled = !inPlay;
@@ -602,8 +603,8 @@
 
     if (_btnReset) {
       _btnReset.addEventListener('click', function () {
-        if (window.GameEngine) {
-          window.GameEngine.resetLevel();
+        if (window.GameEngine && window.GameEngine.undoLastAction) {
+          window.GameEngine.undoLastAction();
         }
       });
     }
@@ -614,6 +615,19 @@
           window.GameEngine.loadLevel(window.GameEngine.currentLevel);
         }
       });
+    }
+  }
+
+  function _syncUndoButtons(canUndo) {
+    _canUndo = !!canUndo;
+
+    if (_btnReset) {
+      _btnReset.disabled = !_canUndo;
+    }
+
+    if (_btnMenuReset) {
+      _btnMenuReset.disabled = _currentView !== 'play' || !_canUndo;
+      _btnMenuReset.classList.toggle('settings-toggle--off', _currentView !== 'play' || !_canUndo);
     }
   }
 
@@ -659,6 +673,11 @@
       }
       _syncSettingsUi();
     });
+
+    document.addEventListener('undo-stack-changed', function (e) {
+      var detail = e.detail || {};
+      _syncUndoButtons(!!detail.canUndo);
+    });
   }
 
   /* ----------------------------------------------------------
@@ -690,6 +709,7 @@
     _wireButtons();
     _wireSettings();
     _setupEventListeners();
+    _syncUndoButtons(false);
 
     if (window.GameEngine && window.GameEngine.init) {
       window.GameEngine.init();

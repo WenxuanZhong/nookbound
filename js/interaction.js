@@ -662,6 +662,37 @@
     };
   }
 
+  function _clonePositions(positions) {
+    if (!positions) return null;
+
+    return positions.map(function (pos) {
+      return { r: pos.r, c: pos.c };
+    });
+  }
+
+  function _buildPieceState(pieceId, placed, positions, rotation) {
+    return {
+      pieceId: pieceId,
+      placed: !!placed,
+      positions: placed && positions ? _clonePositions(positions) : null,
+      rotation: rotation || 0,
+    };
+  }
+
+  function _snapshotPieceState(pieceId) {
+    if (!window.GameEngine || !window.GameEngine.snapshotPieceState) {
+      return null;
+    }
+    return window.GameEngine.snapshotPieceState(pieceId);
+  }
+
+  function _recordHistoryAction(type, pieceId, beforeState, afterState) {
+    if (!window.GameEngine || !window.GameEngine.recordAction) {
+      return false;
+    }
+    return window.GameEngine.recordAction(type, pieceId, beforeState, afterState);
+  }
+
   function _isPointInRect(x, y, rect, margin) {
     var left;
     var top;
@@ -1679,19 +1710,24 @@
       window.GameEngine.placePiece(pieceId, snapState.legal.positions);
     }
     _renderPlacedPiece(pieceId, snapState.legal.positions, piece.color || '#7BA7BC');
-    _onRotationChanged(pieceId);
-    return true;
+    return {
+      positions: _clonePositions(snapState.legal.positions),
+    };
   }
 
   function _rotateActivePiece(dir) {
     var pieceId = _getRotationTargetPieceId();
     var wasPlaced;
     var previousRotation;
+    var beforeState;
+    var placedRotationResult;
+    var afterState;
 
     if (!pieceId || !window.GameEngine) return;
 
     previousRotation = window.GameEngine.getPieceRotation ? window.GameEngine.getPieceRotation(pieceId) : 0;
     wasPlaced = window.GameEngine.isPiecePlaced && window.GameEngine.isPiecePlaced(pieceId);
+    beforeState = (!_drag.active || !wasPlaced) ? _snapshotPieceState(pieceId) : null;
 
     if (dir === 'cw') {
       window.GameEngine.rotatePieceCW(pieceId);
@@ -1700,13 +1736,26 @@
     }
 
     if (wasPlaced && !_drag.active) {
-      if (!_rotatePlacedSelection(pieceId)) {
+      placedRotationResult = _rotatePlacedSelection(pieceId);
+      if (!placedRotationResult) {
         window.GameEngine.pieceRotations[pieceId] = previousRotation;
         _refreshPieceWrapper(pieceId);
         return;
       }
-    } else {
-      _onRotationChanged(pieceId);
+      afterState = _buildPieceState(
+        pieceId,
+        true,
+        placedRotationResult.positions,
+        window.GameEngine.getPieceRotation(pieceId)
+      );
+      _recordHistoryAction('rotate', pieceId, beforeState, afterState);
+    }
+
+    _onRotationChanged(pieceId);
+
+    if (!wasPlaced && !_drag.active) {
+      afterState = _snapshotPieceState(pieceId);
+      _recordHistoryAction('rotate', pieceId, beforeState, afterState);
     }
 
     _setSelectedPiece(pieceId, true);
@@ -1956,8 +2005,12 @@
     _drag.restoreRect = _cloneRect(options.restoreRect || startRect);
     _drag.wasPlaced = !!options.wasPlaced;
     _drag.source = options.source || 'tray';
-    _drag.originPositions = options.originPositions ? options.originPositions.slice() : null;
-    _drag.originRotation = options.originRotation || 0;
+    _drag.originPositions = options.originPositions ? _clonePositions(options.originPositions) : null;
+    _drag.originRotation = options.originRotation !== undefined
+      ? options.originRotation
+      : (window.GameEngine && window.GameEngine.getPieceRotation
+          ? window.GameEngine.getPieceRotation(pieceId)
+          : 0);
     _drag.width = startRect.width;
     _drag.height = startRect.height;
     _drag.currentX = startRect.left;
@@ -2275,6 +2328,10 @@
       var canPlace = window.GameEngine.canPlace
         ? window.GameEngine.canPlace(pieceId, snap.positions)
         : true;
+      var beforeState = _drag.source === 'board'
+        ? _buildPieceState(pieceId, true, _drag.originPositions, _drag.originRotation)
+        : _buildPieceState(pieceId, false, null, _drag.originRotation);
+      var afterState;
 
       if (canPlace) {
         // Place the piece
@@ -2296,6 +2353,19 @@
 
         // Reset fixed positioning styles
         _resetPieceStyle(el);
+
+        afterState = _buildPieceState(
+          pieceId,
+          true,
+          snap.positions,
+          window.GameEngine.getPieceRotation ? window.GameEngine.getPieceRotation(pieceId) : _drag.originRotation
+        );
+        _recordHistoryAction(
+          _drag.source === 'board' ? 'reposition' : 'place',
+          pieceId,
+          beforeState,
+          afterState
+        );
 
         success = true;
         _setHint(_t('hint.placed') || '已放下。还可以继续调整，或换下一块。', 'success', HINT_RESTORE_MS);
@@ -2450,8 +2520,26 @@
   }
 
   function _cancelBoardPieceToTray(el) {
+    var pieceId = _drag.pieceId;
+    var beforeState = pieceId
+      ? _buildPieceState(pieceId, true, _drag.originPositions, _drag.originRotation)
+      : null;
+    var afterState = pieceId
+      ? _buildPieceState(
+          pieceId,
+          false,
+          null,
+          window.GameEngine && window.GameEngine.getPieceRotation
+            ? window.GameEngine.getPieceRotation(pieceId)
+            : _drag.originRotation
+        )
+      : null;
+
     _setHint(_t('hint.returned') || '这块已经回到待选区，随时都能再拖回来。', 'active', HINT_RESTORE_MS);
     _returnToTray(el);
+    if (pieceId && beforeState && afterState) {
+      _recordHistoryAction('remove', pieceId, beforeState, afterState);
+    }
     setTimeout(function () {
       _renderGuideStateIfActive();
     }, RETURN_DURATION + 20);
@@ -2867,6 +2955,30 @@
           : (window.GameEngine.pieces || []);
         _renderPieces(pieces);
       }
+    });
+
+    document.addEventListener('game-undo', function () {
+      if (!window.GameEngine) return;
+
+      _clearPress();
+      _drag.active = false;
+      _detachPointerListeners();
+      document.removeEventListener('wheel', _onWheel);
+      _setDragScrollLock(false);
+      _clearSelection();
+      _clearHighlights();
+      _cancelDragTargetUpdate();
+
+      var pieces = window.GameEngine.getPieces
+        ? window.GameEngine.getPieces()
+        : (window.GameEngine.pieces || []);
+
+      _renderPieces(pieces);
+      if (window.GameEngine.board && window.GameEngine.pieces) {
+        _updateBoardState(window.GameEngine.board, window.GameEngine.pieces);
+      }
+      _setHint(_baseHintText, 'active', HINT_RESTORE_MS);
+      _showRotationBar();
     });
 
     document.addEventListener('language-changed', function () {

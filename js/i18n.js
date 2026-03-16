@@ -36,7 +36,7 @@
       buttons: {
         hint: '提示',
         guide: '题解',
-        reset: '归位',
+        reset: '返回上一步',
         restart: '重开',
       },
       settings: {
@@ -174,7 +174,7 @@
       buttons: {
         hint: 'Hint',
         guide: 'Guide',
-        reset: 'Return',
+        reset: 'Undo',
         restart: 'Restart',
       },
       settings: {

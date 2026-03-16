@@ -45,8 +45,10 @@
     placedPieces: {},    // pieceId -> [{r, c}, ...]
     levelData: null,     // full level definition reference
     pieceRotations: {},  // pieceId -> rotation (0-5)
+    undoStack: [],       // [{ type, pieceId, before, after }]
     _pieceMap: {},       // pieceId -> piece definition
     _rotatedShapeCache: {}, // pieceId -> { rotation -> shape }
+    _historySuspended: 0,
 
     // Board geometry cache
     _boardCenterX: 0,
@@ -137,9 +139,12 @@
       // Clear placed pieces and rotations
       this.placedPieces = {};
       this.pieceRotations = {};
+      this.undoStack = [];
+      this._historySuspended = 0;
 
       // Dispatch level-loaded event
       this._dispatch("level-loaded", { levelIndex: levelIndex, level: this.levelData });
+      this._dispatch("undo-stack-changed", { canUndo: false });
     },
 
     /**
@@ -191,6 +196,79 @@
      */
     getSolution: function () {
       return this.levelData ? this.levelData.solution : null;
+    },
+
+    /**
+     * Capture the current state of a single piece for undo history.
+     * @param {string} pieceId
+     * @returns {{pieceId: string, placed: boolean, positions: Array|null, rotation: number}|null}
+     */
+    snapshotPieceState: function (pieceId) {
+      var piece = this.getPieceById(pieceId);
+      var positions;
+      if (!piece) {
+        return null;
+      }
+
+      positions = this.placedPieces[pieceId];
+      return {
+        pieceId: pieceId,
+        placed: !!positions,
+        positions: positions ? this._clonePositions(positions) : null,
+        rotation: this.getPieceRotation(pieceId),
+      };
+    },
+
+    /**
+     * Record a completed user action for undo.
+     * @param {string} type
+     * @param {string} pieceId
+     * @param {Object} beforeState
+     * @param {Object} afterState
+     */
+    recordAction: function (type, pieceId, beforeState, afterState) {
+      if (this._historySuspended > 0) {
+        return false;
+      }
+
+      if (!beforeState || !afterState || this._pieceStatesEqual(beforeState, afterState)) {
+        return false;
+      }
+
+      this.undoStack.push({
+        type: type,
+        pieceId: pieceId,
+        before: this._clonePieceState(beforeState),
+        after: this._clonePieceState(afterState),
+      });
+
+      this._dispatch("undo-stack-changed", { canUndo: this.undoStack.length > 0 });
+      return true;
+    },
+
+    /**
+     * Undo the most recent recorded action.
+     * @returns {boolean}
+     */
+    undoLastAction: function () {
+      if (!this.undoStack.length) {
+        return false;
+      }
+
+      var entry = this.undoStack.pop();
+      this._historySuspended++;
+      try {
+        this._applyPieceState(entry.before);
+      } finally {
+        this._historySuspended--;
+      }
+
+      this._dispatch("game-undo", {
+        action: entry,
+        canUndo: this.undoStack.length > 0,
+      });
+      this._dispatch("undo-stack-changed", { canUndo: this.undoStack.length > 0 });
+      return true;
     },
 
     // ------------------------------------------------------------------
@@ -436,9 +514,11 @@
 
       this.placedPieces = {};
       this.pieceRotations = {};
+      this.undoStack = [];
 
       // Dispatch event
       this._dispatch("game-reset", {});
+      this._dispatch("undo-stack-changed", { canUndo: false });
     },
 
     /**
@@ -948,6 +1028,95 @@
       this._boardCenterX = 0;
       this._boardTopY = 0;
       this._maxRow = maxRow;
+    },
+
+    _clonePositions: function (positions) {
+      if (!positions) {
+        return null;
+      }
+
+      var copy = [];
+      for (var i = 0; i < positions.length; i++) {
+        copy.push({ r: positions[i].r, c: positions[i].c });
+      }
+      return copy;
+    },
+
+    _clonePieceState: function (state) {
+      if (!state) {
+        return null;
+      }
+
+      return {
+        pieceId: state.pieceId,
+        placed: !!state.placed,
+        positions: state.positions ? this._clonePositions(state.positions) : null,
+        rotation: ((state.rotation % 6) + 6) % 6,
+      };
+    },
+
+    _pieceStatesEqual: function (a, b) {
+      if (!a || !b) {
+        return false;
+      }
+
+      if (!!a.placed !== !!b.placed) {
+        return false;
+      }
+
+      if ((((a.rotation || 0) % 6) + 6) % 6 !== (((b.rotation || 0) % 6) + 6) % 6) {
+        return false;
+      }
+
+      if (!a.placed && !b.placed) {
+        return true;
+      }
+
+      if (!a.positions || !b.positions || a.positions.length !== b.positions.length) {
+        return false;
+      }
+
+      for (var i = 0; i < a.positions.length; i++) {
+        if (a.positions[i].r !== b.positions[i].r || a.positions[i].c !== b.positions[i].c) {
+          return false;
+        }
+      }
+
+      return true;
+    },
+
+    _applyPieceState: function (state) {
+      if (!state || !state.pieceId) {
+        return false;
+      }
+
+      var pieceId = state.pieceId;
+      var currentPositions = this.placedPieces[pieceId];
+      var i;
+      var key;
+
+      if (currentPositions) {
+        for (i = 0; i < currentPositions.length; i++) {
+          key = currentPositions[i].r + "," + currentPositions[i].c;
+          if (this.board[key] === pieceId) {
+            this.board[key] = null;
+          }
+        }
+        delete this.placedPieces[pieceId];
+      }
+
+      this.pieceRotations[pieceId] = ((state.rotation || 0) % 6 + 6) % 6;
+
+      if (state.placed && state.positions && state.positions.length) {
+        var nextPositions = this._clonePositions(state.positions);
+        for (i = 0; i < nextPositions.length; i++) {
+          key = nextPositions[i].r + "," + nextPositions[i].c;
+          this.board[key] = pieceId;
+        }
+        this.placedPieces[pieceId] = nextPositions;
+      }
+
+      return true;
     },
 
     /**
