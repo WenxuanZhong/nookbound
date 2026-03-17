@@ -537,6 +537,7 @@ button:focus-visible {
   display: flex;
   align-items: center;
   justify-content: center;
+  touch-action: none;
 }
 
 #board-svg {
@@ -544,6 +545,7 @@ button:focus-visible {
   width: 100%;
   height: auto;
   overflow: visible;
+  touch-action: none;
 }
 
 /* SVG pit circles (styled via attributes in JS, but class fallbacks here) */
@@ -811,6 +813,11 @@ body.drag-scroll-locked {
   stroke: rgba(255,255,255,.72);
   stroke-width: 1.1;
   filter: url(#highlight-glow);
+}
+
+#board-pieces .board-piece--drag-origin {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .guide-preview {

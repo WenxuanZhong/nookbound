@@ -70,6 +70,7 @@
     el:        null,               // floating drag ghost
     wrapper:   null,               // source .piece-wrapper kept in the tray
     captureEl: null,
+    boardNode: null,
     pieceId:   null,
     offsetX:   0,
     offsetY:   0,
@@ -80,6 +81,7 @@
     invalidSnap: null,             // nearest invalid candidate for feedback
     wasPlaced: false,              // true if piece was on the board when drag began
     source:    'tray',
+    mode:      'place',
     originPositions: null,
     originRotation: 0,
     width: 0,
@@ -92,6 +94,7 @@
     boardRect: null,
     pointerX: 0,
     pointerY: 0,
+    lastPanelZone: '',
     lastProbeX: null,
     lastProbeY: null,
     lastProbeRotation: null,
@@ -294,6 +297,56 @@
     }
 
     return _drag.source === 'board' ? 'board' : 'tray';
+  }
+
+  function _getDragPanelState(refPoint, pointerPoint) {
+    var boardContainer = document.getElementById('board-container');
+    var boardMargin = _isCoarsePointer() ? 22 : 4;
+    var trayMargin = _isCoarsePointer() ? 26 : 20;
+    var trayRect = _tray && _tray.getBoundingClientRect ? _tray.getBoundingClientRect() : _drag.trayRect;
+    var boardRect = boardContainer && boardContainer.getBoundingClientRect
+      ? boardContainer.getBoundingClientRect()
+      : _drag.boardRect;
+    var centerPoint = refPoint || _getDraggedReferencePoint();
+    var fingerPoint = pointerPoint || (
+      _drag.pointerX && _drag.pointerY
+        ? { pageX: _drag.pointerX, pageY: _drag.pointerY }
+        : centerPoint
+    );
+    var centerInBoard = !!(centerPoint && boardRect && _isPointInRect(centerPoint.pageX, centerPoint.pageY, boardRect, boardMargin));
+    var fingerInBoard = !!(fingerPoint && boardRect && _isPointInRect(fingerPoint.pageX, fingerPoint.pageY, boardRect, boardMargin));
+    var centerInTray = !!(centerPoint && trayRect && _isPointInRect(centerPoint.pageX, centerPoint.pageY, trayRect, trayMargin));
+    var fingerInTray = !!(fingerPoint && trayRect && _isPointInRect(fingerPoint.pageX, fingerPoint.pageY, trayRect, trayMargin));
+    var zone;
+
+    if (boardRect) {
+      _drag.boardRect = _cloneRect(boardRect);
+    }
+    if (trayRect) {
+      _drag.trayRect = _cloneRect(trayRect);
+    }
+
+    if (_drag.mode === 'reposition') {
+      zone = (centerInBoard || fingerInBoard) ? 'board' : 'tray';
+    } else if (centerInBoard || fingerInBoard) {
+      zone = 'board';
+    } else if (centerInTray || fingerInTray) {
+      zone = 'tray';
+    } else {
+      zone = 'tray';
+    }
+
+    return {
+      zone: zone,
+      boardRect: boardRect,
+      trayRect: trayRect,
+      centerPoint: centerPoint,
+      fingerPoint: fingerPoint,
+      centerInBoard: centerInBoard,
+      fingerInBoard: fingerInBoard,
+      centerInTray: centerInTray,
+      fingerInTray: fingerInTray,
+    };
   }
 
   function _isCoarsePointer() {
@@ -1194,6 +1247,10 @@
       _setDragOriginState(wrapper, false);
       wrapper.classList.toggle('piece--placed', !!placed);
     }
+
+    if (!placed && _drag.boardNode) {
+      _disposeBoardDragOrigin(_drag.boardNode);
+    }
   }
 
   /* ----------------------------------------------------------
@@ -1889,14 +1946,10 @@
     if (!_drag.active || !_drag.el) return;
 
     var refPoint = _getDraggedReferencePoint();
+    var panelState;
     if (!refPoint) return;
-    var panelPoint = (_drag.source === 'board' && _drag.pointerX && _drag.pointerY)
-      ? { pageX: _drag.pointerX, pageY: _drag.pointerY }
-      : refPoint;
-    var releaseZone =
-      _drag.source === 'board'
-        ? _getBoardReleaseZone(panelPoint.pageX, panelPoint.pageY)
-        : 'board';
+    panelState = _getDragPanelState(refPoint);
+    var releaseZone = _drag.source === 'board' ? panelState.zone : 'board';
     var rotation = window.GameEngine && window.GameEngine.getPieceRotation
       ? window.GameEngine.getPieceRotation(_drag.pieceId)
       : 0;
@@ -1906,6 +1959,7 @@
       _drag.lastProbeX !== null &&
       Math.abs(refPoint.pageX - _drag.lastProbeX) < DRAG_RECALC_EPSILON &&
       Math.abs(refPoint.pageY - _drag.lastProbeY) < DRAG_RECALC_EPSILON &&
+      _drag.lastPanelZone === releaseZone &&
       _drag.lastProbeRotation === rotation
     ) {
       return;
@@ -1913,6 +1967,7 @@
 
     _drag.lastProbeX = refPoint.pageX;
     _drag.lastProbeY = refPoint.pageY;
+    _drag.lastPanelZone = releaseZone;
     _drag.lastProbeRotation = rotation;
 
     if (releaseZone === 'tray') {
@@ -2010,12 +2065,18 @@
     document.addEventListener('pointermove', _onPointerMove, { passive: false });
     document.addEventListener('pointerup', _onPointerUp, { passive: false });
     document.addEventListener('pointercancel', _onPointerUp, { passive: false });
+    document.addEventListener('touchmove', _onPointerMove, { passive: false });
+    document.addEventListener('touchend', _onPointerUp, { passive: false });
+    document.addEventListener('touchcancel', _onPointerUp, { passive: false });
   }
 
   function _detachPointerListeners() {
     document.removeEventListener('pointermove', _onPointerMove);
     document.removeEventListener('pointerup', _onPointerUp);
     document.removeEventListener('pointercancel', _onPointerUp);
+    document.removeEventListener('touchmove', _onPointerMove);
+    document.removeEventListener('touchend', _onPointerUp);
+    document.removeEventListener('touchcancel', _onPointerUp);
   }
 
   function _queuePress(wrapper, pieceId, pointerEvent, source, boardNode) {
@@ -2111,6 +2172,17 @@
     wrapper.classList.toggle('piece--drag-origin', !!active);
   }
 
+  function _setBoardDragOriginState(boardNode, active) {
+    if (!boardNode) return;
+    boardNode.classList.toggle('board-piece--drag-origin', !!active);
+  }
+
+  function _disposeBoardDragOrigin(boardNode) {
+    if (boardNode && boardNode.parentNode) {
+      boardNode.parentNode.removeChild(boardNode);
+    }
+  }
+
   function _beginDrag(wrapper, pieceId, pointerPos, startRect, options, pointerId) {
     options = options || {};
     var anchorX = options.anchorX !== undefined ? options.anchorX : pointerPos.x;
@@ -2132,12 +2204,14 @@
     _drag.el = ghost;
     _drag.wrapper = wrapper;
     _drag.captureEl = captureEl;
+    _drag.boardNode = options.boardNode || null;
     _drag.pieceId = pieceId;
     _drag.startRect = dragRect;
     _drag.returnRect = _cloneRect(options.returnRect || dragRect);
     _drag.restoreRect = _cloneRect(options.restoreRect || dragRect);
     _drag.wasPlaced = !!options.wasPlaced;
     _drag.source = options.source || 'tray';
+    _drag.mode = options.mode || (_drag.source === 'board' ? 'reposition' : 'place');
     _drag.originPositions = options.originPositions ? _clonePositions(options.originPositions) : null;
     _drag.originRotation = options.originRotation !== undefined
       ? options.originRotation
@@ -2153,6 +2227,7 @@
     _drag.boardRect = options.boardRect ? _cloneRect(options.boardRect) : null;
     _drag.pointerX = pointerPos.x;
     _drag.pointerY = pointerPos.y;
+    _drag.lastPanelZone = '';
     _drag.lastProbeX = null;
     _drag.lastProbeY = null;
     _drag.lastProbeRotation = null;
@@ -2246,7 +2321,11 @@
     if (window.GameEngine.removePiece) {
       window.GameEngine.removePiece(pieceId);
     }
-    _removePlacedPiece(pieceId);
+    if (boardNode) {
+      _setBoardDragOriginState(boardNode, true);
+    } else {
+      _removePlacedPiece(pieceId);
+    }
 
     _beginDrag(
       wrapper,
@@ -2255,6 +2334,7 @@
       dragRect,
       {
         source: 'board',
+        mode: 'reposition',
         wasPlaced: true,
         originPositions: originPositions.map(function (pos) {
           return { r: pos.r, c: pos.c };
@@ -2267,7 +2347,8 @@
         boardRect: cancelBoardRect,
         anchorX: _press.startX,
         anchorY: _press.startY,
-        captureEl: wrapper,
+        captureEl: boardContainer || _boardSvg || wrapper,
+        boardNode: boardNode || null,
       },
       pointerEvent.pointerId
     );
@@ -2375,6 +2456,7 @@
       rect,
       {
         source: 'tray',
+        mode: 'place',
         wasPlaced: false,
         returnRect: rect,
         anchorX: _press.startX,
@@ -2432,6 +2514,8 @@
       }
       releaseWidth = _drag.width || parseFloat(el.style.width) || el.offsetWidth;
       releaseHeight = _drag.height || parseFloat(el.style.height) || el.offsetHeight;
+      _drag.pointerX = releasePos.x;
+      _drag.pointerY = releasePos.y;
       _drag.currentX = releasePos.x - releaseWidth / 2 - _drag.offsetX;
       _drag.currentY = releasePos.y - releaseHeight / 2 - _drag.offsetY;
       _commitDragPosition(el);
@@ -2442,13 +2526,13 @@
     var invalidSnap = _drag.invalidSnap;
     var success = false;
     var delayRotationBar = false;
-    var panelReleasePoint =
-      _drag.source === 'board' && _drag.pointerX && _drag.pointerY
-        ? { pageX: _drag.pointerX, pageY: _drag.pointerY }
-        : { pageX: releasePos.x, pageY: releasePos.y };
+    var panelReleaseState = _getDragPanelState(
+      _getDraggedReferencePoint(),
+      { pageX: releasePos.x, pageY: releasePos.y }
+    );
     var boardReleaseZone =
       _drag.source === 'board'
-        ? _getBoardReleaseZone(panelReleasePoint.pageX, panelReleasePoint.pageY)
+        ? panelReleaseState.zone
         : 'tray';
 
     _drag.active = false;
@@ -2565,6 +2649,7 @@
     _drag.el      = null;
     _drag.wrapper = null;
     _drag.captureEl = null;
+    _drag.boardNode = null;
     _drag.pieceId = null;
     _drag.snapPos = null;
     _drag.invalidSnap = null;
@@ -2574,6 +2659,7 @@
     _drag.originPositions = null;
     _drag.originRotation = 0;
     _drag.source = 'tray';
+    _drag.mode = 'place';
     _drag.trayRect = null;
     _drag.boardRect = null;
     _drag.pointerX = 0;
@@ -2585,6 +2671,7 @@
     _drag.offsetX = 0;
     _drag.offsetY = 0;
     _drag.color = '#7BA7BC';
+    _drag.lastPanelZone = '';
     _drag.lastProbeX = null;
     _drag.lastProbeY = null;
     _drag.lastProbeRotation = null;
@@ -2902,11 +2989,13 @@
      ---------------------------------------------------------- */
 
   function _reset() {
+    _disposeBoardDragOrigin(_drag.boardNode);
     _disposeDragGhostElement(_drag.el);
     _drag.active    = false;
     _drag.el        = null;
     _drag.wrapper   = null;
     _drag.captureEl = null;
+    _drag.boardNode = null;
     _drag.pieceId   = null;
     _drag.snapPos   = null;
     _drag.invalidSnap = null;
@@ -2916,6 +3005,7 @@
     _drag.originPositions = null;
     _drag.originRotation = 0;
     _drag.source = 'tray';
+    _drag.mode = 'place';
     _drag.trayRect = null;
     _drag.boardRect = null;
     _drag.width = 0;
@@ -2925,6 +3015,7 @@
     _drag.offsetX = 0;
     _drag.offsetY = 0;
     _drag.color = '#7BA7BC';
+    _drag.lastPanelZone = '';
     _cancelDragTargetUpdate();
     _setDragScrollLock(false);
     _guide.mode = 'none';
@@ -3123,10 +3214,14 @@
 
       _clearPress();
       _disposeDragGhostElement(_drag.el);
+      _disposeBoardDragOrigin(_drag.boardNode);
       _drag.active = false;
       _drag.el = null;
       _drag.wrapper = null;
       _drag.captureEl = null;
+      _drag.boardNode = null;
+      _drag.mode = 'place';
+      _drag.lastPanelZone = '';
       _detachPointerListeners();
       document.removeEventListener('wheel', _onWheel);
       _setDragScrollLock(false);
