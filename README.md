@@ -1,20 +1,26 @@
-# 归隅
+# 归隅 / Nookbound
 
-归隅（`Nookbound`）是一个基于三角晶格的静态网页拼图游戏。当前仓库不依赖框架构建，发布时只需要把静态资源整理到 `dist/` 并部署到静态托管平台。
+归隅（`Nookbound`）是一个基于三角晶格的浏览器拼图游戏。它是个纯静态网页项目，整体想做得安静一点，像一件可以慢慢摆弄的逻辑玩具。
+
+在线地址：[https://nookbound.pages.dev/](https://nookbound.pages.dev/)
+
+## 关于这个项目
+
+这个仓库不依赖前端框架。构建时做的事情也很直接：把发布需要的静态资源整理到 `dist/`，然后交给 Cloudflare Pages。
+
+现在站点已经部署在 Cloudflare Pages，这份 README 主要留一下项目本身的结构、本地运行方式，以及仓库里正在用的发布说明。
 
 ## 本地运行
 
-### 1. 构建
+先构建：
 
 ```bash
 npm run build
 ```
 
-构建完成后，发布产物会输出到 `dist/`。
+构建产物会输出到 `dist/`。
 
-### 2. 本地预览
-
-任选一种静态服务器方式：
+本地预览时，直接起一个静态服务器看 `dist/` 就可以。这里保留目前在用的两种方式：
 
 ```bash
 npx wrangler pages dev dist
@@ -28,47 +34,53 @@ python -m http.server 4175 --directory dist
 
 ## 项目结构
 
-- `index.html`：入口页面
-- `css/style.css`：样式
-- `js/`：游戏逻辑、关卡数据、音频、题解与交互
-- `scripts/build.mjs`：静态构建脚本
-- `dist/`：构建产物目录
+```text
+index.html          入口页面
+css/style.css       样式
+js/                 游戏逻辑、关卡数据、音频与交互
+scripts/build.mjs   静态构建脚本
+dist/               构建产物
+```
 
-## 部署到 Cloudflare Pages
+## 部署
 
-### 方案一：GitHub 集成部署
+项目当前部署在 Cloudflare Pages，仓库里也保留了两种发布方式的说明。
 
-1. 把仓库 push 到 GitHub。
-2. 在 Cloudflare Dashboard 中创建 Pages 项目并连接该仓库。
-3. 构建设置填写：
-   - Framework preset: `None`
-   - Build command: `npm run build`
-   - Build output directory: `dist`
-   - Root directory: 留空或 `/`
-4. 首次部署完成后，Cloudflare 会生成 `*.pages.dev` 域名。
+### GitHub 集成
 
-### 方案二：Wrangler 直接部署
+Cloudflare Pages 这边使用的构建配置是：
 
-仓库已包含 `wrangler.toml`：
+- Framework preset: `None`
+- Build command: `npm run build`
+- Build output directory: `dist`
+- Root directory: 留空或 `/`
 
-- `pages_build_output_dir = "./dist"`
-- `compatibility_date = "2026-03-16"`
+首次部署完成后，Cloudflare 会分配一个 `*.pages.dev` 域名。
 
-直接部署时可使用：
+### Wrangler 直传
+
+仓库里带着 `wrangler.toml`，当前相关配置如下：
+
+```toml
+pages_build_output_dir = "./dist"
+compatibility_date = "2026-03-16"
+```
+
+如果走 Wrangler，命令是：
 
 ```bash
 npx wrangler pages deploy dist
 ```
 
-首次使用需要先登录 Cloudflare：
+第一次在本地使用前，需要先登录：
 
 ```bash
 npx wrangler login
 ```
 
-## 上线前检查建议
+## 发布前检查
 
-- 运行 `npm run build`
-- 本地打开 `dist/` 做一次桌面端和移动端拖拽回归
-- 检查中英文切换、设置菜单、题解、重开、返回选关
-- 确认 Cloudflare Pages 项目 Production branch 指向 `main`
+- 跑一遍 `npm run build`
+- 本地打开 `dist/`，把桌面端和移动端拖拽过一遍
+- 检查中英文切换、设置菜单、提示、重开、返回选关
+- 确认 Cloudflare Pages 项目的 Production branch 指向 `main`
