@@ -42,18 +42,8 @@
   var _rotationBar    = null;
   var _hintBar        = null;
   var _hintText       = null;
-  var _guideOverlay   = null;
-  var _guideTitle     = null;
-  var _guideDescription = null;
-  var _guideProgress  = null;
-  var _guideMode      = null;
   var _loadingMessage = null;
   var _btnHint        = null;
-  var _btnGuide       = null;
-  var _btnGuidePrev   = null;
-  var _btnGuideNext   = null;
-  var _btnGuideToggle = null;
-  var _btnGuideClose  = null;
   var _hintTimer      = null;
   var _hintState      = { text: '', mode: '' };
   var _baseHintText   = '把拼块拖到棋盘里。';
@@ -101,9 +91,7 @@
   };
 
   var _guide = {
-    mode: 'none',
-    stepIndex: 0,
-    full: false,
+    stepIndex: -1,
     highlightedPieceId: null,
   };
 
@@ -501,13 +489,36 @@
     });
   }
 
-  function _getHintPieceId() {
-    for (var i = 0; i < _pieces.length; i++) {
-      if (!window.GameEngine || !window.GameEngine.isPiecePlaced || !window.GameEngine.isPiecePlaced(_pieces[i].id)) {
-        return _pieces[i].id;
+  function _isPiecePlaced(pieceId) {
+    return !!(
+      pieceId &&
+      window.GameEngine &&
+      window.GameEngine.isPiecePlaced &&
+      window.GameEngine.isPiecePlaced(pieceId)
+    );
+  }
+
+  function _getHintPieceId(stepIndex) {
+    return _pieces[stepIndex] ? _pieces[stepIndex].id : null;
+  }
+
+  function _getNextHintStepIndex(fromIndex) {
+    var start = Math.max(0, fromIndex || 0);
+    var i;
+
+    for (i = start; i < _pieces.length; i++) {
+      if (!_isPiecePlaced(_pieces[i].id)) {
+        return i;
       }
     }
-    return null;
+
+    return -1;
+  }
+
+  function _clearHintProgress() {
+    _guide.stepIndex = -1;
+    _guide.highlightedPieceId = null;
+    _clearGuideOverlay();
   }
 
   function _highlightTrayPiece(pieceId) {
@@ -1447,46 +1458,30 @@
       return;
     }
 
-    if (_guide.mode === 'hint') {
-      if (
-        _guide.highlightedPieceId &&
-        window.GameEngine &&
-        window.GameEngine.isPiecePlaced &&
-        window.GameEngine.isPiecePlaced(_guide.highlightedPieceId)
-      ) {
-        _guide.highlightedPieceId = _getHintPieceId();
-      }
-      if (_guide.highlightedPieceId) {
-        _highlightTrayPiece(_guide.highlightedPieceId);
-        _renderGuidePiece(
-          _guide.highlightedPieceId,
-          _getSolvedPositions(_guide.highlightedPieceId),
-          _getPieceData(_guide.highlightedPieceId).color || '#7BA7BC',
-          'focus'
-        );
-      }
+    var stepPieceId = _guide.highlightedPieceId || _getHintPieceId(_guide.stepIndex);
+    var stepPiece = stepPieceId ? _getPieceData(stepPieceId) : null;
+
+    if (!stepPieceId || !stepPiece || _guide.stepIndex < 0) {
       return;
     }
 
-    if (_guide.mode !== 'solution') {
+    if (_isPiecePlaced(stepPieceId)) {
+      _guide.highlightedPieceId = null;
       return;
     }
 
-    var stepPiece = _pieces[_guide.stepIndex] ? _pieces[_guide.stepIndex].id : null;
-
-    if (_guide.full) {
-      _pieces.forEach(function (piece) {
-        _renderGuidePiece(piece.id, _getSolvedPositions(piece.id), piece.color || '#7BA7BC', piece.id === stepPiece ? 'focus' : 'soft');
-      });
-    } else if (stepPiece) {
-      _renderGuidePiece(stepPiece, _getSolvedPositions(stepPiece), _getPieceData(stepPiece).color || '#7BA7BC', 'focus');
-    }
-
-    _highlightTrayPiece(stepPiece);
+    _guide.highlightedPieceId = stepPieceId;
+    _highlightTrayPiece(stepPieceId);
+    _renderGuidePiece(
+      stepPieceId,
+      _getSolvedPositions(stepPieceId),
+      stepPiece.color || '#7BA7BC',
+      'focus'
+    );
   }
 
   function _renderGuideStateIfActive() {
-    if (_guide.mode === 'hint' || _guide.mode === 'solution') {
+    if (_guide.stepIndex >= 0) {
       _renderGuideState();
     }
   }
@@ -2591,6 +2586,7 @@
 
         // Check win condition
         if (window.GameEngine.checkWin && window.GameEngine.checkWin()) {
+          _clearHintProgress();
           // Audio feedback for win
           document.dispatchEvent(new CustomEvent('sfx-win'));
           // Small delay so placement renders before celebration
@@ -2861,20 +2857,6 @@
     return ' ' + (_t('rotationInstruction.multi') || '需要先转到合适方向，再去贴边。');
   }
 
-  function _setGuideOverlayOpen(isOpen) {
-    if (!_guideOverlay) return;
-    _guideOverlay.classList.toggle('hidden', !isOpen);
-    _guideOverlay.classList.toggle('guide-shell--open', !!isOpen);
-    _guideOverlay.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
-    if (_appEl) {
-      _appEl.classList.toggle('app--guide-open', !!isOpen);
-    }
-    if (_btnGuide) {
-      _btnGuide.classList.toggle('btn--accent', !!isOpen);
-      _btnGuide.classList.toggle('btn--subtle', !isOpen);
-    }
-  }
-
   function _describeGuideStep(pieceId) {
     var slot = _getPieceIndex(pieceId) + 1;
     var placement = _getSolutionPlacement(pieceId);
@@ -2893,95 +2875,55 @@
     return '第 ' + slot + ' 块拼块的目标在' + anchorText + '。' + _getRotationInstruction(pieceId);
   }
 
-  function _openGuide() {
-    if (!_pieces.length) return;
+  function _formatHintStepText(pieceId, stepIndex) {
+    var prefix = _t('hint.stepProgress', {
+      step: stepIndex + 1,
+      total: _pieces.length,
+    }) || ('提示 ' + (stepIndex + 1) + ' / ' + _pieces.length + '：');
 
-    if (_guideOverlay && !_guideOverlay.classList.contains('hidden')) {
-      _closeGuide();
-      return;
-    }
-
-    _guide.mode = 'solution';
-    _guide.full = false;
-    _guide.highlightedPieceId = null;
-    _guide.stepIndex = Math.max(0, _getPieceIndex(_getHintPieceId()));
-    _setGuideOverlayOpen(true);
-    _renderGuidePanel();
-  }
-
-  function _closeGuide() {
-    _guide.mode = 'none';
-    _guide.full = false;
-    _guide.highlightedPieceId = null;
-    _setGuideOverlayOpen(false);
-    _clearGuideOverlay();
-    _setHint(_baseHintText);
-  }
-
-  function _renderGuidePanel() {
-    var stepPiece;
-
-    if (_guide.mode !== 'solution' || !_pieces.length) {
-      return;
-    }
-
-    if (_guide.stepIndex < 0) _guide.stepIndex = 0;
-    if (_guide.stepIndex > _pieces.length - 1) _guide.stepIndex = _pieces.length - 1;
-
-    stepPiece = _pieces[_guide.stepIndex].id;
-
-    if (_guideTitle) {
-      _guideTitle.textContent = _guide.full
-        ? (_t('guide.fullTitle') || '完整摆法')
-        : (_t('guide.title') || '分步题解');
-    }
-    if (_guideDescription) {
-      _guideDescription.textContent = _guide.full
-        ? (_t('guide.fullDescription') || '所有目标位置都会显示出来，你可以边看边继续摆放。')
-        : _describeGuideStep(stepPiece);
-    }
-    if (_guideProgress) {
-      _guideProgress.textContent = _t('guide.progress', {
-        step: _guide.stepIndex + 1,
-        total: _pieces.length,
-      }) || ('第 ' + (_guide.stepIndex + 1) + ' / ' + _pieces.length + ' 步');
-    }
-    if (_guideMode) {
-      _guideMode.textContent = _guide.full
-        ? (_t('guide.mode.full') || '全览')
-        : (_t('guide.mode.focus') || '聚焦');
-    }
-    if (_btnGuidePrev) {
-      _btnGuidePrev.disabled = _guide.stepIndex === 0;
-    }
-    if (_btnGuideNext) {
-      _btnGuideNext.textContent = _guide.stepIndex === _pieces.length - 1
-        ? (_t('guide.done') || '完成')
-        : (_t('guide.next') || '下一步');
-    }
-    if (_btnGuideToggle) {
-      _btnGuideToggle.textContent = _guide.full
-        ? (_t('guide.showStep') || '只看当前')
-        : (_t('guide.showFull') || '显示全解');
-    }
-
-    _renderGuideState();
+    return prefix + ' ' + _describeGuideStep(pieceId);
   }
 
   function _showHintGuide() {
-    var pieceId = _getHintPieceId();
+    var nextIndex;
+    var pieceId;
+    var fallbackIndex;
 
-    if (!pieceId) {
-      _setHint(_t('hint.completedGuide') || '棋盘已经完成了，如要回看可以打开题解。', 'success', HINT_RESTORE_MS);
+    if (!_pieces.length) return;
+
+    if (window.GameEngine && window.GameEngine.checkWin && window.GameEngine.checkWin()) {
+      _clearHintProgress();
+      _setHint(_t('hint.completed') || '这一关已经完成了。', 'success', HINT_RESTORE_MS);
       return;
     }
 
-    _guide.mode = 'hint';
-    _guide.full = false;
+    nextIndex = _getNextHintStepIndex(_guide.stepIndex + 1);
+
+    if (nextIndex === -1) {
+      pieceId = _guide.highlightedPieceId || _getHintPieceId(_guide.stepIndex);
+      if (pieceId && !_isPiecePlaced(pieceId)) {
+        _renderGuideState();
+        _setHint(_formatHintStepText(pieceId, _guide.stepIndex), 'active', HINT_RESTORE_MS + 600);
+        return;
+      }
+
+      fallbackIndex = _getNextHintStepIndex(0);
+      if (fallbackIndex === -1) {
+        _clearHintProgress();
+        _setHint(_t('hint.completed') || '这一关已经完成了。', 'success', HINT_RESTORE_MS);
+        return;
+      }
+
+      nextIndex = fallbackIndex;
+    }
+
+    pieceId = _getHintPieceId(nextIndex);
+    if (!pieceId) return;
+
+    _guide.stepIndex = nextIndex;
     _guide.highlightedPieceId = pieceId;
-    _setGuideOverlayOpen(false);
     _renderGuideState();
-    _setHint(_describeGuideStep(pieceId), 'active', HINT_RESTORE_MS + 600);
+    _setHint(_formatHintStepText(pieceId, nextIndex), 'active', HINT_RESTORE_MS + 600);
   }
 
   /* ----------------------------------------------------------
@@ -3018,9 +2960,7 @@
     _drag.lastPanelZone = '';
     _cancelDragTargetUpdate();
     _setDragScrollLock(false);
-    _guide.mode = 'none';
-    _guide.stepIndex = 0;
-    _guide.full = false;
+    _guide.stepIndex = -1;
     _guide.highlightedPieceId = null;
     _selectedPieceId = null;
     _highlightedTrayPieceId = null;
@@ -3050,7 +2990,6 @@
 
     // Hide rotation bar
     _hideRotationBar();
-    _setGuideOverlayOpen(false);
     _hintState.text = '';
     _hintState.mode = '';
     _setHint(_baseHintText);
@@ -3063,7 +3002,7 @@
     if (_drag.active || _press.active) return;
     _clearSelection();
     _clearHighlights();
-    _closeGuide();
+    _clearGuideOverlay();
     _setHint(_baseHintText);
   }
 
@@ -3090,17 +3029,7 @@
     _rotationBar = _createRotationBar();
     _hintBar = document.getElementById('play-hint-bar');
     _hintText = document.getElementById('play-hint-text');
-    _guideOverlay = document.getElementById('guide-overlay');
-    _guideTitle = document.getElementById('guide-title');
-    _guideDescription = document.getElementById('guide-description');
-    _guideProgress = document.getElementById('guide-progress');
-    _guideMode = document.getElementById('guide-mode');
     _btnHint = document.getElementById('btn-hint');
-    _btnGuide = document.getElementById('btn-guide');
-    _btnGuidePrev = document.getElementById('btn-guide-prev');
-    _btnGuideNext = document.getElementById('btn-guide-next');
-    _btnGuideToggle = document.getElementById('btn-guide-toggle');
-    _btnGuideClose = document.getElementById('btn-guide-close');
     _loadRotationTipSeen();
     document.addEventListener('keydown', _onKeyDown);
 
@@ -3111,51 +3040,6 @@
         _showHintGuide();
       });
     }
-
-    if (_btnGuide) {
-      _btnGuide.addEventListener('click', function () {
-        _openGuide();
-      });
-    }
-
-    if (_btnGuidePrev) {
-      _btnGuidePrev.addEventListener('click', function () {
-        if (_guide.stepIndex > 0) {
-          _guide.stepIndex--;
-          _renderGuidePanel();
-        }
-      });
-    }
-
-    if (_btnGuideNext) {
-      _btnGuideNext.addEventListener('click', function () {
-        if (_guide.stepIndex >= _pieces.length - 1) {
-          _closeGuide();
-          return;
-        }
-        _guide.stepIndex++;
-        _renderGuidePanel();
-      });
-    }
-
-    if (_btnGuideToggle) {
-      _btnGuideToggle.addEventListener('click', function () {
-        _guide.full = !_guide.full;
-        _renderGuidePanel();
-      });
-    }
-
-    if (_btnGuideClose) {
-      _btnGuideClose.addEventListener('click', function () {
-        _closeGuide();
-      });
-    }
-
-    document.addEventListener('keydown', function (e) {
-      if (e.key === 'Escape' && _guideOverlay && !_guideOverlay.classList.contains('hidden')) {
-        _closeGuide();
-      }
-    });
 
     document.addEventListener('pointerdown', function (e) {
       var target = e.target;
@@ -3255,10 +3139,13 @@
         }
       }
 
-      if (_guide.mode === 'solution') {
-        _renderGuidePanel();
-      } else {
-        _renderGuideState();
+      _renderGuideState();
+
+      if (_guide.stepIndex >= 0) {
+        var currentHintPieceId = _guide.highlightedPieceId || _getHintPieceId(_guide.stepIndex);
+        if (currentHintPieceId && !_isPiecePlaced(currentHintPieceId)) {
+          _setHint(_formatHintStepText(currentHintPieceId, _guide.stepIndex), 'active', HINT_RESTORE_MS + 600);
+        }
       }
 
       _showRotationBar();

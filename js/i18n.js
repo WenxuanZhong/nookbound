@@ -35,7 +35,6 @@
       },
       buttons: {
         hint: '提示',
-        guide: '题解',
         reset: '返回上一步',
         restart: '重开',
       },
@@ -70,6 +69,7 @@
       },
       hint: {
         default: '把拼块拖到棋盘里。',
+        stepProgress: '提示 {step} / {total}：',
         loadError: '关卡加载失败，请重开或返回选关。',
         selectedCoarse: '已选中拼块，可直接旋转或拖动。',
         selectedFine: '已选中拼块，可点按旋转，也可用 Q / E。',
@@ -85,7 +85,7 @@
         moveCloserFine: '再靠近棋盘一些，可点旋转按钮或按 Q / E。',
         placed: '已放下。还可以继续调整，或换下一块。',
         returned: '这块已经回到待选区，随时都能再拖回来。',
-        completedGuide: '棋盘已经完成了，如要回看可以打开题解。',
+        completed: '这一关已经完成了。',
         invalid: {
           occupied: '这里被占住了，试试旁边的空位。',
           offBoard: '再往棋盘里移一点。',
@@ -173,7 +173,6 @@
       },
       buttons: {
         hint: 'Hint',
-        guide: 'Guide',
         reset: 'Undo',
         restart: 'Restart',
       },
@@ -208,6 +207,7 @@
       },
       hint: {
         default: 'Drag a piece onto the board.',
+        stepProgress: 'Hint {step} / {total}:',
         loadError: 'Puzzle loading failed. Restart or return to the selection screen.',
         selectedCoarse: 'Piece selected. Rotate it or drag it into place.',
         selectedFine: 'Piece selected. Use the rotate buttons or press Q / E.',
@@ -223,7 +223,7 @@
         moveCloserFine: 'Move closer to the board. Use the rotate buttons or Q / E if needed.',
         placed: 'Placed. You can still adjust it, or move to the next piece.',
         returned: 'That piece is back in the tray and ready to place again.',
-        completedGuide: 'The board is already complete. Open the guide if you want to review it.',
+        completed: 'This board is already complete.',
         invalid: {
           occupied: 'That spot is occupied. Try a nearby opening.',
           offBoard: 'Move a little farther onto the board.',

@@ -22,7 +22,6 @@
   var _btnSfxToggle = null;
   var _btnMusicToggle = null;
   var _btnMenuHint = null;
-  var _btnMenuGuide = null;
   var _btnMenuReset = null;
   var _btnMenuRestart = null;
   var _playLevelEyebrow = null;
@@ -477,10 +476,6 @@
       _btnMenuHint.disabled = !inPlay;
       _btnMenuHint.classList.toggle('settings-toggle--off', !inPlay);
     }
-    if (_btnMenuGuide) {
-      _btnMenuGuide.disabled = !inPlay;
-      _btnMenuGuide.classList.toggle('settings-toggle--off', !inPlay);
-    }
     if (_btnMenuReset) {
       _btnMenuReset.disabled = !inPlay || !_canUndo;
       _btnMenuReset.classList.toggle('settings-toggle--off', !inPlay || !_canUndo);
@@ -499,7 +494,6 @@
     _btnSfxToggle = document.getElementById('btn-sfx-toggle');
     _btnMusicToggle = document.getElementById('btn-music-toggle');
     _btnMenuHint = document.getElementById('btn-menu-hint');
-    _btnMenuGuide = document.getElementById('btn-menu-guide');
     _btnMenuReset = document.getElementById('btn-menu-reset');
     _btnMenuRestart = document.getElementById('btn-menu-restart');
 
@@ -547,15 +541,6 @@
         var hintButton = document.getElementById('btn-hint');
         if (_currentView !== 'play' || !hintButton) return;
         hintButton.click();
-        _setSettingsOpen(false);
-      });
-    }
-
-    if (_btnMenuGuide) {
-      _btnMenuGuide.addEventListener('click', function () {
-        var guideButton = document.getElementById('btn-guide');
-        if (_currentView !== 'play' || !guideButton) return;
-        guideButton.click();
         _setSettingsOpen(false);
       });
     }
