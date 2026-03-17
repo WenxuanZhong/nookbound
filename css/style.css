@@ -731,14 +731,38 @@ button:focus-visible {
 }
 
 /* Piece states */
-.piece--dragging {
-  box-shadow: var(--shadow-md) !important;
-  z-index: 1000;
-  opacity: 0.96;
-  cursor: grabbing;
+.piece-drag-ghost {
   position: fixed;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  background: transparent !important;
+  border: 0;
+  box-shadow: none !important;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 1000;
+  will-change: transform;
+}
+
+.piece-drag-ghost .piece-svg {
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+}
+
+.piece--dragging {
+  z-index: 1000;
+  opacity: 1;
+  cursor: grabbing;
   pointer-events: none;
   will-change: transform;
+}
+
+.piece--drag-origin {
+  visibility: hidden;
+  pointer-events: none;
 }
 
 html.drag-scroll-locked,

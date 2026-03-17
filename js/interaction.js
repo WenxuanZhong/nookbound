@@ -67,7 +67,9 @@
 
   var _drag = {
     active:    false,
-    el:        null,               // the .piece-wrapper being dragged
+    el:        null,               // floating drag ghost
+    wrapper:   null,               // source .piece-wrapper kept in the tray
+    captureEl: null,
     pieceId:   null,
     offsetX:   0,
     offsetY:   0,
@@ -269,24 +271,29 @@
 
   function _getBoardReleaseZone(pageX, pageY) {
     var boardContainer = document.getElementById('board-container');
-    var trayRect = _drag.trayRect;
-    var boardRect = _drag.boardRect;
+    var boardMargin = _isCoarsePointer() ? 22 : 4;
+    var trayMargin = _isCoarsePointer() ? 26 : 20;
+    var trayRect = _tray && _tray.getBoundingClientRect ? _tray.getBoundingClientRect() : _drag.trayRect;
+    var boardRect = boardContainer && boardContainer.getBoundingClientRect
+      ? boardContainer.getBoundingClientRect()
+      : _drag.boardRect;
 
-    if (!boardRect && boardContainer) {
-      boardRect = boardContainer.getBoundingClientRect();
+    if (boardRect) {
+      _drag.boardRect = _cloneRect(boardRect);
     }
-    if (boardRect && _isPointInRect(pageX, pageY, boardRect, 4)) {
+    if (trayRect) {
+      _drag.trayRect = _cloneRect(trayRect);
+    }
+
+    if (boardRect && _isPointInRect(pageX, pageY, boardRect, boardMargin)) {
       return 'board';
     }
 
-    if (!trayRect && _tray) {
-      trayRect = _tray.getBoundingClientRect();
-    }
-    if (trayRect && _isPointInRect(pageX, pageY, trayRect, 20)) {
+    if (trayRect && _isPointInRect(pageX, pageY, trayRect, trayMargin)) {
       return 'tray';
     }
 
-    return 'tray';
+    return _drag.source === 'board' ? 'board' : 'tray';
   }
 
   function _isCoarsePointer() {
@@ -1105,6 +1112,90 @@
     return svg;
   }
 
+  function _buildDragPieceSVG(pieceId, color) {
+    var piece = _getPieceData(pieceId);
+    var rotation;
+    var rotatedShape;
+
+    if (!piece) return null;
+
+    rotation = window.GameEngine && window.GameEngine.getPieceRotation
+      ? window.GameEngine.getPieceRotation(pieceId)
+      : 0;
+    rotatedShape = window.GameEngine && window.GameEngine.getRotatedShape
+      ? window.GameEngine.getRotatedShape(piece.shape, rotation)
+      : piece.shape;
+
+    return _createPieceSVG({
+      id: piece.id + '-drag',
+      shape: rotatedShape,
+      color: color || piece.color,
+      baseShape: piece.shape,
+      frame: _getPieceFrame(piece),
+      renderFrame: _getPieceFrame(piece),
+    });
+  }
+
+  function _createDragGhost(pieceId, color, rect) {
+    var ghost;
+    var svg;
+
+    if (!rect) return null;
+
+    ghost = document.createElement('div');
+    ghost.className = 'piece-drag-ghost piece--dragging';
+    ghost.setAttribute('data-piece-id', pieceId);
+    ghost.setAttribute('data-color', color || '#7BA7BC');
+    ghost.style.left = rect.left + 'px';
+    ghost.style.top = rect.top + 'px';
+    ghost.style.width = rect.width + 'px';
+    ghost.style.height = rect.height + 'px';
+    ghost.style.transition = 'none';
+
+    svg = _buildDragPieceSVG(pieceId, color);
+    if (svg) {
+      ghost.appendChild(svg);
+    }
+
+    return ghost;
+  }
+
+  function _refreshDragGhost(pieceId) {
+    var ghost = _drag.el;
+    var newSvg;
+    var oldSvg;
+
+    if (!ghost) return;
+
+    newSvg = _buildDragPieceSVG(pieceId, _drag.color || ghost.getAttribute('data-color'));
+    if (!newSvg) return;
+
+    oldSvg = ghost.querySelector('.piece-svg');
+    if (oldSvg) {
+      ghost.replaceChild(newSvg, oldSvg);
+    } else {
+      ghost.appendChild(newSvg);
+    }
+  }
+
+  function _disposeDragGhostElement(el) {
+    if (!el) return;
+
+    _cancelReturnAnimation(el);
+    if (el.parentNode) {
+      el.parentNode.removeChild(el);
+    }
+  }
+
+  function _releaseDragVisual(el, wrapper, placed) {
+    _disposeDragGhostElement(el);
+
+    if (wrapper) {
+      _setDragOriginState(wrapper, false);
+      wrapper.classList.toggle('piece--placed', !!placed);
+    }
+  }
+
   /* ----------------------------------------------------------
      Render pieces in the tray
      ---------------------------------------------------------- */
@@ -1645,6 +1736,7 @@
 
     if (_drag.el) {
       _refreshPieceWrapper(pieceId);
+      _refreshDragGhost(pieceId);
 
       _drag.el.style.transition = 'transform 120ms ease';
       _applyDragTransform(_drag.el, _getDragScale() + 0.03);
@@ -1998,20 +2090,52 @@
     };
   }
 
+  function _getWrapperPieceRect(wrapper) {
+    if (!wrapper) return null;
+
+    var pieceSvg = wrapper.querySelector('.piece-svg');
+    var rect = pieceSvg && pieceSvg.getBoundingClientRect
+      ? pieceSvg.getBoundingClientRect()
+      : (wrapper.getBoundingClientRect ? wrapper.getBoundingClientRect() : null);
+
+    return rect ? _cloneRect(rect) : null;
+  }
+
+  function _getBoardPieceRect(boardNode) {
+    if (!boardNode || !boardNode.getBoundingClientRect) return null;
+    return _cloneRect(boardNode.getBoundingClientRect());
+  }
+
+  function _setDragOriginState(wrapper, active) {
+    if (!wrapper) return;
+    wrapper.classList.toggle('piece--drag-origin', !!active);
+  }
+
   function _beginDrag(wrapper, pieceId, pointerPos, startRect, options, pointerId) {
     options = options || {};
     var anchorX = options.anchorX !== undefined ? options.anchorX : pointerPos.x;
     var anchorY = options.anchorY !== undefined ? options.anchorY : pointerPos.y;
     var shouldLockScroll = options.lockScroll !== undefined ? options.lockScroll : true;
+    var dragRect = _cloneRect(options.dragRect || startRect);
+    var captureEl = options.captureEl || wrapper;
+    var color = wrapper.getAttribute('data-color') || '#7BA7BC';
+    var ghost;
+
+    if (!dragRect) return;
+
+    ghost = _createDragGhost(pieceId, color, dragRect);
+    if (!ghost) return;
 
     _clearPress();
     _setSelectedPiece(pieceId, true);
     _drag.active = true;
-    _drag.el = wrapper;
+    _drag.el = ghost;
+    _drag.wrapper = wrapper;
+    _drag.captureEl = captureEl;
     _drag.pieceId = pieceId;
-    _drag.startRect = _cloneRect(startRect);
-    _drag.returnRect = _cloneRect(options.returnRect || startRect);
-    _drag.restoreRect = _cloneRect(options.restoreRect || startRect);
+    _drag.startRect = dragRect;
+    _drag.returnRect = _cloneRect(options.returnRect || dragRect);
+    _drag.restoreRect = _cloneRect(options.restoreRect || dragRect);
     _drag.wasPlaced = !!options.wasPlaced;
     _drag.source = options.source || 'tray';
     _drag.originPositions = options.originPositions ? _clonePositions(options.originPositions) : null;
@@ -2020,11 +2144,11 @@
       : (window.GameEngine && window.GameEngine.getPieceRotation
           ? window.GameEngine.getPieceRotation(pieceId)
           : 0);
-    _drag.width = startRect.width;
-    _drag.height = startRect.height;
-    _drag.currentX = startRect.left;
-    _drag.currentY = startRect.top;
-    _drag.color = wrapper.getAttribute('data-color') || '#7BA7BC';
+    _drag.width = dragRect.width;
+    _drag.height = dragRect.height;
+    _drag.currentX = dragRect.left;
+    _drag.currentY = dragRect.top;
+    _drag.color = color;
     _drag.trayRect = options.trayRect ? _cloneRect(options.trayRect) : null;
     _drag.boardRect = options.boardRect ? _cloneRect(options.boardRect) : null;
     _drag.pointerX = pointerPos.x;
@@ -2032,30 +2156,26 @@
     _drag.lastProbeX = null;
     _drag.lastProbeY = null;
     _drag.lastProbeRotation = null;
-    _drag.offsetX = anchorX - startRect.left - startRect.width / 2;
-    _drag.offsetY = anchorY - startRect.top - startRect.height / 2;
-    _drag.currentX = pointerPos.x - startRect.width / 2 - _drag.offsetX;
-    _drag.currentY = pointerPos.y - startRect.height / 2 - _drag.offsetY;
+    _drag.offsetX = anchorX - dragRect.left - dragRect.width / 2;
+    _drag.offsetY = anchorY - dragRect.top - dragRect.height / 2;
+    _drag.currentX = pointerPos.x - dragRect.width / 2 - _drag.offsetX;
+    _drag.currentY = pointerPos.y - dragRect.height / 2 - _drag.offsetY;
     _drag.snapPos = null;
     _drag.invalidSnap = null;
     _cancelDragTargetUpdate();
-    _cancelReturnAnimation(wrapper);
+    _cancelReturnAnimation(ghost);
 
-    wrapper.classList.add('piece--dragging');
-    wrapper.style.left = startRect.left + 'px';
-    wrapper.style.top = startRect.top + 'px';
-    wrapper.style.width = startRect.width + 'px';
-    wrapper.style.height = startRect.height + 'px';
-    wrapper.style.transition = 'none';
-    _applyDragTransform(wrapper);
-
-    if (pointerId !== undefined && wrapper.setPointerCapture) {
+    if (captureEl && pointerId !== undefined && captureEl.setPointerCapture) {
       try {
-        wrapper.setPointerCapture(pointerId);
+        captureEl.setPointerCapture(pointerId);
       } catch (err) {
         // Ignore capture errors from SVG/touch edge cases.
       }
     }
+
+    _setDragOriginState(wrapper, true);
+    document.body.appendChild(ghost);
+    _applyDragTransform(ghost);
 
     _clearGuideOverlay();
     _recalcSvgTransform();
@@ -2096,7 +2216,7 @@
 
     var pointerPos = _getPointerPos(pointerEvent);
     var wrapperRect;
-    var boardRect;
+    var boardPieceRect;
     var boardContainer;
     var cancelBoardRect;
     var dragRect;
@@ -2107,20 +2227,20 @@
     wrapper.classList.remove('piece--placed');
     wrapper.style.pointerEvents = '';
     wrapper.style.cursor = '';
-    wrapperRect = wrapper.getBoundingClientRect();
-    boardRect = boardNode && boardNode.getBoundingClientRect ? boardNode.getBoundingClientRect() : wrapperRect;
+    wrapperRect = _getWrapperPieceRect(wrapper) || _cloneRect(wrapper.getBoundingClientRect());
+    boardPieceRect = _getBoardPieceRect(boardNode) || wrapperRect;
     boardContainer = document.getElementById('board-container');
     cancelBoardRect = boardContainer && boardContainer.getBoundingClientRect
       ? boardContainer.getBoundingClientRect()
-      : boardRect;
+      : boardPieceRect;
     trayRect = _tray && _tray.getBoundingClientRect ? _tray.getBoundingClientRect() : wrapperRect;
     _recalcSvgTransform();
     placementCenter = _getPlacementPageCenter(originPositions);
     dragRect = _rectFromCenter(
-      placementCenter ? placementCenter.x : (boardRect.left + boardRect.width / 2),
-      placementCenter ? placementCenter.y : (boardRect.top + boardRect.height / 2),
-      wrapperRect.width,
-      wrapperRect.height
+      placementCenter ? placementCenter.x : (boardPieceRect.left + boardPieceRect.width / 2),
+      placementCenter ? placementCenter.y : (boardPieceRect.top + boardPieceRect.height / 2),
+      boardPieceRect.width,
+      boardPieceRect.height
     );
 
     if (window.GameEngine.removePiece) {
@@ -2142,11 +2262,12 @@
         originRotation: rotation,
         returnRect: wrapperRect,
         restoreRect: dragRect,
+        dragRect: dragRect,
         trayRect: trayRect,
         boardRect: cancelBoardRect,
         anchorX: _press.startX,
         anchorY: _press.startY,
-        lockScroll: false,
+        captureEl: wrapper,
       },
       pointerEvent.pointerId
     );
@@ -2244,7 +2365,7 @@
       return;
     }
 
-    rect = _press.wrapper ? _press.wrapper.getBoundingClientRect() : null;
+    rect = _press.wrapper ? (_getWrapperPieceRect(_press.wrapper) || _cloneRect(_press.wrapper.getBoundingClientRect())) : null;
     if (!rect || !_press.wrapper) return;
 
     _beginDrag(
@@ -2294,15 +2415,17 @@
     _cancelDragTargetUpdate();
 
     var el      = _drag.el;
+    var wrapper = _drag.wrapper;
+    var captureEl = _drag.captureEl || el;
     var pieceId = _drag.pieceId;
     var releaseWidth;
     var releaseHeight;
     var releasePos = _getPointerPos(e);
 
     if (el) {
-      if (e.pointerId !== undefined && el.releasePointerCapture) {
+      if (e.pointerId !== undefined && captureEl && captureEl.releasePointerCapture) {
         try {
-          el.releasePointerCapture(e.pointerId);
+          captureEl.releasePointerCapture(e.pointerId);
         } catch (err) {
           // Ignore pointer capture cleanup errors.
         }
@@ -2329,7 +2452,9 @@
         : 'tray';
 
     _drag.active = false;
-    el.classList.remove('piece--dragging');
+    if (el) {
+      el.classList.remove('piece--dragging');
+    }
     _clearHighlights();
 
     if (_drag.source === 'board' && boardReleaseZone === 'tray') {
@@ -2426,7 +2551,9 @@
         }
       } else {
         _setHint(_baseHintText, 'active', HINT_RESTORE_MS);
-        _returnToTray(el);
+        _returnToTray(el, function () {
+          _releaseDragVisual(el, wrapper, false);
+        });
       }
     }
 
@@ -2436,9 +2563,12 @@
 
     _emit('piece-drag-end', { pieceId: pieceId, success: success });
     _drag.el      = null;
+    _drag.wrapper = null;
+    _drag.captureEl = null;
     _drag.pieceId = null;
     _drag.snapPos = null;
     _drag.invalidSnap = null;
+    _drag.wasPlaced = false;
     _drag.returnRect = null;
     _drag.restoreRect = null;
     _drag.originPositions = null;
@@ -2452,6 +2582,8 @@
     _drag.height = 0;
     _drag.currentX = 0;
     _drag.currentY = 0;
+    _drag.offsetX = 0;
+    _drag.offsetY = 0;
     _drag.color = '#7BA7BC';
     _drag.lastProbeX = null;
     _drag.lastProbeY = null;
@@ -2483,22 +2615,21 @@
   }
 
   function _settlePlacedTrayPiece(el) {
-    if (!el) return;
-
-    _cancelReturnAnimation(el);
-    el.style.transition = 'none';
-    el.style.opacity = '0';
-    _resetPieceStyle(el);
-    el.classList.add('piece--placed');
-
-    requestAnimationFrame(function () {
-      el.style.opacity = '';
-    });
+    _releaseDragVisual(el, _drag.wrapper, true);
   }
 
-  function _returnToRect(el, rect) {
+  function _returnToRect(el, rect, onComplete) {
+    if (!el) {
+      if (onComplete) {
+        onComplete();
+      }
+      return;
+    }
+
     if (!rect) {
-      _resetPieceStyle(el);
+      if (onComplete) {
+        onComplete();
+      }
       return;
     }
 
@@ -2534,16 +2665,19 @@
     _cancelReturnAnimation(el);
     el._returnTimerId = setTimeout(function () {
       el._returnTimerId = 0;
-      _resetPieceStyle(el);
+      if (onComplete) {
+        onComplete();
+      }
     }, RETURN_DURATION + 20);
   }
 
-  function _returnToTray(el) {
-    _returnToRect(el, _drag.returnRect);
+  function _returnToTray(el, onComplete) {
+    _returnToRect(el, _drag.returnRect, onComplete);
   }
 
   function _cancelBoardPieceToTray(el) {
     var pieceId = _drag.pieceId;
+    var wrapper = _drag.wrapper;
     var beforeState = pieceId
       ? _buildPieceState(pieceId, true, _drag.originPositions, _drag.originRotation)
       : null;
@@ -2559,17 +2693,18 @@
       : null;
 
     _setHint(_t('hint.returned') || '这块已经回到待选区，随时都能再拖回来。', 'active', HINT_RESTORE_MS);
-    _returnToTray(el);
     if (pieceId && beforeState && afterState) {
       _recordHistoryAction('remove', pieceId, beforeState, afterState);
     }
-    setTimeout(function () {
+    _returnToTray(el, function () {
+      _releaseDragVisual(el, wrapper, false);
       _renderGuideStateIfActive();
-    }, RETURN_DURATION + 20);
+    });
   }
 
   function _restoreOriginPlacement(el) {
     var pieceId = _drag.pieceId;
+    var wrapper = _drag.wrapper;
     var originPositions = _drag.originPositions
       ? _drag.originPositions.map(function (pos) {
           return { r: pos.r, c: pos.c };
@@ -2578,9 +2713,7 @@
     var originRotation = _drag.originRotation || 0;
     var color = el ? el.getAttribute('data-color') : '#7BA7BC';
 
-    _returnToRect(el, _drag.restoreRect);
-
-    setTimeout(function () {
+    _returnToRect(el, _drag.restoreRect, function () {
       if (!pieceId || !originPositions || !window.GameEngine) return;
 
       if (window.GameEngine.pieceRotations) {
@@ -2590,16 +2723,14 @@
         window.GameEngine.placePiece(pieceId, originPositions);
       }
       _renderPlacedPiece(pieceId, originPositions, color);
-
-      if (el) {
-        el.classList.add('piece--placed');
-      }
-
+      _releaseDragVisual(el, wrapper, true);
       _renderGuideStateIfActive();
-    }, RETURN_DURATION + 20);
+    });
   }
 
   function _shakeAndReturn(el) {
+    var wrapper = _drag.wrapper;
+
     // Quick shake then return
     el.style.transition = 'transform 60ms ease-in-out';
     el.style.transform  = 'translateX(6px)';
@@ -2617,7 +2748,9 @@
       el.style.transform = 'translateX(0)';
     }, 240);
     setTimeout(function () {
-      _returnToTray(el);
+      _returnToTray(el, function () {
+        _releaseDragVisual(el, wrapper, false);
+      });
     }, 300);
   }
 
@@ -2769,8 +2902,11 @@
      ---------------------------------------------------------- */
 
   function _reset() {
+    _disposeDragGhostElement(_drag.el);
     _drag.active    = false;
     _drag.el        = null;
+    _drag.wrapper   = null;
+    _drag.captureEl = null;
     _drag.pieceId   = null;
     _drag.snapPos   = null;
     _drag.invalidSnap = null;
@@ -2786,6 +2922,8 @@
     _drag.height = 0;
     _drag.currentX = 0;
     _drag.currentY = 0;
+    _drag.offsetX = 0;
+    _drag.offsetY = 0;
     _drag.color = '#7BA7BC';
     _cancelDragTargetUpdate();
     _setDragScrollLock(false);
@@ -2807,7 +2945,7 @@
       var wrappers = _tray.querySelectorAll('.piece-wrapper');
       wrappers.forEach(function (w) {
         _cancelReturnAnimation(w);
-        w.classList.remove('piece--placed', 'piece--dragging', 'piece--selected');
+        w.classList.remove('piece--placed', 'piece--dragging', 'piece--selected', 'piece--drag-origin');
         _resetPieceStyle(w);
         w.style.pointerEvents = '';
         w.style.cursor = '';
@@ -2984,7 +3122,11 @@
       if (!window.GameEngine) return;
 
       _clearPress();
+      _disposeDragGhostElement(_drag.el);
       _drag.active = false;
+      _drag.el = null;
+      _drag.wrapper = null;
+      _drag.captureEl = null;
       _detachPointerListeners();
       document.removeEventListener('wheel', _onWheel);
       _setDragScrollLock(false);
